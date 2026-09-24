@@ -4,6 +4,8 @@
 .mcp.json
 # Codex-Konfig (enthält API-Keys, z. B. RESEND_API_KEY – nie committen)
 .codex/
+# Persönliche Claude-Code-Einstellungen (lokale Freigaben, nicht teilen)
+.claude/settings.local.json
 
 # dependencies
 /node_modules
