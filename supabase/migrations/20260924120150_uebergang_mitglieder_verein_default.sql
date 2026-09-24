@@ -1,0 +1,11 @@
+-- Migration: Übergangs-Default für mitglieder.verein (angewendet 2026-09-24)
+--
+-- Die DB-Migrationen wirken sofort live, das neue Frontend kommt erst nach
+-- Preview-Freigabe auf main. Die bis dahin ausgelieferte Mitgliederverwaltung
+-- sendet noch kein 'verein' – ohne Default würde das Anlegen von Mitgliedern
+-- mit einer NOT-NULL-Verletzung scheitern. FCB ist fachlich korrekt, weil es
+-- zu diesem Zeitpunkt keinen JFG-Vorstand gibt.
+--
+-- Wird durch 20260924120300_nach_frontend_merge.sql wieder entfernt, damit
+-- danach jede Neuanlage die Zuordnung explizit mitsenden muss.
+alter table public.mitglieder alter column verein set default '{fcb}'::text[];

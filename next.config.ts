@@ -51,6 +51,32 @@ const nextConfig: NextConfig = {
       }
     ],
   },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          // HSTS explizit statt nur über den Vercel-Plattform-Default (Audit 2026-09-24).
+          // Bewusst ohne "preload": Aufnahme in die Browser-Preload-Liste ist kaum
+          // rückgängig zu machen und wäre eine eigene Entscheidung für beide Domains.
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains",
+          },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=()",
+          },
+        ],
+      },
+    ];
+  },
   // Alte Routennamen (/kalender, /vorstand) dauerhaft auf die neuen, konsistenten
   // Routen umleiten – schützt bestehende Bookmarks/geteilte Links (z. B. bei Trainern).
   async redirects() {

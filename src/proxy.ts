@@ -33,6 +33,61 @@ import {
   tenantAusHostname,
 } from "@/lib/tenant";
 
+const CSP_HEADER = "Content-Security-Policy";
+
+function erstelleContentSecurityPolicy(nonce: string): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  let supabaseOrigin: string | null = null;
+  let supabaseWebSocketOrigin: string | null = null;
+
+  if (supabaseUrl) {
+    try {
+      const url = new URL(supabaseUrl);
+      supabaseOrigin = url.origin;
+      supabaseWebSocketOrigin = `wss://${url.host}`;
+    } catch (error) {
+      // Eine ungültige URL wird bewusst nicht freigegeben, damit die CSP sicher
+      // geschlossen bleibt; die Diagnose gehört ausschließlich ins Server-Log.
+      console.error("NEXT_PUBLIC_SUPABASE_URL ist für die CSP ungültig:", error);
+    }
+  }
+
+  const scriptSources = [
+    "'self'",
+    `'nonce-${nonce}'`,
+    "'strict-dynamic'",
+    ...(process.env.NODE_ENV === "development" ? ["'unsafe-eval'"] : []),
+  ];
+  const imageSources = [
+    "'self'",
+    "data:",
+    "blob:",
+    ...(supabaseOrigin ? [supabaseOrigin] : []),
+  ];
+  const connectSources = [
+    "'self'",
+    ...(supabaseOrigin ? [supabaseOrigin] : []),
+    ...(supabaseWebSocketOrigin ? [supabaseWebSocketOrigin] : []),
+    "https://vitals.vercel-insights.com",
+  ];
+
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSources.join(" ")}`,
+    "style-src 'self' 'unsafe-inline'",
+    `img-src ${imageSources.join(" ")}`,
+    "font-src 'self' data:",
+    `connect-src ${connectSources.join(" ")}`,
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    ...(process.env.NODE_ENV === "production"
+      ? ["upgrade-insecure-requests"]
+      : []),
+  ].join("; ") + ";";
+}
+
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 Tage
 
 export function proxy(req: NextRequest) {
@@ -56,7 +111,15 @@ export function proxy(req: NextRequest) {
   const headers = new Headers(req.headers);
   headers.set(TENANT_HEADER, tenant);
 
+  // Next.js liest die CSP aus den Request-Headern und versieht damit seine
+  // eigenen Scripts; der Response-Header erzwingt dieselbe Policy im Browser.
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const contentSecurityPolicy = erstelleContentSecurityPolicy(nonce);
+  headers.set("x-nonce", nonce);
+  headers.set(CSP_HEADER, contentSecurityPolicy);
+
   const res = NextResponse.next({ request: { headers } });
+  res.headers.set(CSP_HEADER, contentSecurityPolicy);
 
   // Override persistieren, damit Folgeklicks im gewählten Auftritt bleiben.
   if (overrideErlaubt && istTenantId(override)) {

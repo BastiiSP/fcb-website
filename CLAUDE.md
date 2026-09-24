@@ -51,8 +51,13 @@ Niemals ohne Rücksprache ändern. Das Rollensystem ist das Herzstück der Zugan
 | `admin` | IT-Verantwortlicher | Alles + Vorstandsrollen und Admin-Rollen vergeben |
 
 **Wichtig:** Vorstand darf zwischen `ausstehend` / `mitglied` / `trainer` wechseln. Nur `admin` darf `vorstand` und `admin` vergeben.
-Das erzwingt zusätzlich die DB: Trigger `trg_prevent_role_escalation` (nur admin vergibt
-vorstand/admin) und `trg_prevent_self_role_change` auf `profiles` – beide live. Rollen-Labels:
+Das erzwingt zusätzlich die DB (Stand 2026-09-24): Trigger `trg_prevent_role_escalation` (nur
+admin vergibt UND entzieht vorstand/admin), `trg_prevent_self_role_change` (eigene Rolle/Mannschaft),
+`trg_prevent_fremdprofil_aenderung` (vorstand darf an fremden Profilen nur `rolle` ändern) und die
+UPDATE-Policy „Vorstand und Admin vergeben Rollen“ (vorstand nur auf Zeilen ausstehend/mitglied/trainer).
+Regressionstests: `npm run test:e2e:security` (legt Wegwerf-Konten auf der Live-DB an, nur bewusst starten).
+**Direkte SQL-Wartung an `profiles`** (MCP, Dashboard) scheitert an diesen Triggern, weil dort kein JWT
+existiert – vorher in derselben Transaktion `set local request.jwt.claims = '{"role":"service_role"}';`. Rollen-Labels:
 `src/lib/rollen.ts`. Privilegierte API-Routen (z. B. `api/benutzer-ablehnen`) prüfen Access-Token
 + Rolle des Aufrufers serverseitig. Vor Änderungen an RLS/Rollenlogik: Skill
 `rls-rollenkonzept-check` und Agent `rls-rollen-reviewer`.
@@ -76,7 +81,8 @@ vorstand/admin) und `trg_prevent_self_role_change` auf `profiles` – beide live
 | `plz` | TEXT | optional |
 | `ort` | TEXT | optional |
 | `trainer_lizenzen` | TEXT[] | optional, Mehrfachauswahl möglich |
-| `avatar_url` | TEXT | optional, öffentliche Supabase-Storage-URL |
+| `avatar_url` | TEXT | optional, CHECK: nur URLs aus dem eigenen Storage-Bucket `avatars` |
+| `verein` | TEXT[] | fcb/jfg (auch beide oder leer). Steuert, wessen `mitglieder` ein vorstand sieht. Nur admin darf ändern (Trigger). Bei Registrierung aus dem Tenant vorbelegt |
 
 ### Tabelle: `buchungen`
 
@@ -130,7 +136,12 @@ Vereinsmitglieder ohne Login-Konto. Wird von Vorstand/Admin gepflegt.
 | `erstellt_von` | UUID | FK → auth.users, SET NULL bei Löschung |
 | `created_at`, `updated_at` | TIMESTAMPTZ | auto, updated_at via Trigger |
 
-RLS: SELECT/INSERT/UPDATE/DELETE nur für vorstand und admin. Trainer: kein Zugriff.
+Zusätzlich `verein` TEXT[] NOT NULL (fcb/jfg, mind. einer) – Tenant-Trennung seit 2026-09-24.
+
+RLS: admin sieht/verwaltet alle; vorstand nur Zeilen mit `verein && get_own_verein()` (strikt:
+JFG-Vorstand sieht keine FCB-Mitglieder und umgekehrt). Trigger `trg_mitglieder_verein_guard`
+verhindert, dass ein vorstand fremde Vereine hinzufügt/entfernt. Trainer/mitglied: kein Zugriff.
+Das Trainer-Verzeichnis liest Profile nur über die RPC `trainer_verzeichnis()` (feste Spalten).
 
 ### Tabelle: `mannschaftsanfragen`
 
@@ -162,7 +173,7 @@ Aktivität, deshalb Write statt Read.
 - **Spaltenname**: `rolle` (Singular, String) – niemals `rollen` (Plural/Array, das war der alte kaputte Name)
 - **TypeScript strict**: Keine `any` Types. Immer explizite Interfaces definieren.
 - **RLS immer aktiv**: Zugangskontrolle läuft in der Datenbank, nicht nur im Frontend
-- **GRANTs nicht vergessen**: Bei jeder neuen Tabelle explizit `GRANT SELECT, INSERT, UPDATE, DELETE ON public.<tabelle> TO authenticated;` ausführen – ohne das greift RLS nie, da Postgres vorher mit „permission denied" abbricht. Bereits zweimal vergessen: `buchungen` (2026-05-22) und `mitglieder` (2026-05-26).
+- **GRANTs nicht vergessen**: Bei jeder neuen Tabelle explizit `GRANT SELECT, INSERT, UPDATE, DELETE ON public.<tabelle> TO authenticated;` ausführen – ohne das greift RLS nie, da Postgres vorher mit „permission denied" abbricht. Bereits zweimal vergessen: `buchungen` (2026-05-22) und `mitglieder` (2026-05-26). Auch `service_role` bekommt in diesem Projekt keine Standard-Grants – fehlte bis 2026-09-24 komplett (dadurch war `api/benutzer-ablehnen` faktisch kaputt); seitdem per Default-Privileges gesetzt.
 - **Neue Tabelle anlegen**: Immer das Skill `supabase-tabelle-anlegen` nutzen (`.claude/skills/`) – verifiziertes Rezept mit korrekter Trigger-Funktion (`handle_updated_at()`), RLS-Muster (`get_own_rolle()`), GRANT und Workflow-Checkliste.
 - **Komponente bauen/ändern**: Immer das Skill `fcb-komponente-bauen` nutzen (`.claude/skills/`) – verifizierte Werte für Tokens (Dual-Theme!), Fonts, Icons, Framer Motion, A11y und die `ui/`-Primitive.
 - **Supabase MCP nutzen**: Für alle Datenbankoperationen den MCP-Server verwenden

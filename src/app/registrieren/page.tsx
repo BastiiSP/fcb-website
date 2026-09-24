@@ -19,9 +19,11 @@ import AuthSubmitButton from "@/components/auth/AuthSubmitButton";
 import AuthErrorBanner from "@/components/auth/AuthErrorBanner";
 import AuthInfoBanner from "@/components/auth/AuthInfoBanner";
 import AuthSwitchPrompt from "@/components/auth/AuthSwitchPrompt";
+import { useTenant } from "@/components/tenant/TenantProvider";
 
 export default function RegistrierungsSeite() {
   const supabase = createClient();
+  const tenant = useTenant();
   const [vorname, setVorname] = useState("");
   const [nachname, setNachname] = useState("");
   const [email, setEmail] = useState("");
@@ -60,7 +62,9 @@ export default function RegistrierungsSeite() {
         // (vorher hart auf www.fcbuku.de verdrahtet).
         emailRedirectTo: `${window.location.origin}/confirm-email`,
         // Telefonnummer entfällt bewusst – Trigger schreibt dann NULL.
-        data: { vorname, nachname },
+        // Der Tenant befüllt profiles.verein bei der Registrierung vor; nur
+        // Admins dürfen diese Zuordnung später ändern.
+        data: { vorname, nachname, verein: tenant.id },
       },
     });
     if (error) {

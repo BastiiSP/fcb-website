@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Oswald, Inter } from "next/font/google";
 import "./globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -49,6 +50,7 @@ export default async function RootLayout({
 }>) {
   // Marke der laufenden Anfrage (src/proxy.ts → x-tenant-Header).
   const tenant = await getTenantConfigServer();
+  const nonce = (await headers()).get("x-nonce");
 
   return (
     // data-tenant steuert die Akzentfarbe (--color-accent in globals.css),
@@ -57,7 +59,11 @@ export default async function RootLayout({
       <head>
         {/* FOUC-Schutz: setzt das Theme VOR dem ersten Paint aus localStorage,
             Fallback dunkel. Inline + blockierend, daher kein Aufblitzen. */}
+        {/* suppressHydrationWarning: Browser verbergen das nonce-Attribut nach dem
+            Parsen (DOM zeigt nonce=""), React meldet sonst einen falschen Mismatch. */}
         <script
+          nonce={nonce ?? undefined}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t='dark';}document.documentElement.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}})();`,
           }}

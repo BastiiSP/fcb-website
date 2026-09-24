@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import Badge from "@/components/ui/Badge";
+import Banner from "@/components/ui/Banner";
 import Button from "@/components/ui/Button";
+import {
+  getTeamAccent,
+  TRAEGER_INFO,
+  type Traeger,
+} from "@/lib/teams";
 
 type Nutzer = {
   id: string;
@@ -13,6 +19,7 @@ type Nutzer = {
   telefonnummer: string | null;
   rolle: string;
   mannschaft: string[] | null;
+  verein: string[];
 };
 
 
@@ -36,6 +43,86 @@ const ROLLEN_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
   admin:      { label: "Admin",      variant: "red" },
 };
 
+const VEREINS_OPTIONEN = ["fcb", "jfg"] as const satisfies readonly Traeger[];
+
+function istTraeger(wert: string): wert is Traeger {
+  return VEREINS_OPTIONEN.some((verein) => verein === wert);
+}
+
+function VereinsBadges({ vereine }: { vereine: string[] }) {
+  const gueltigeVereine = vereine.filter(istTraeger);
+
+  if (gueltigeVereine.length === 0) {
+    return <Badge variant="neutral">Kein Verein</Badge>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {gueltigeVereine.map((verein) => {
+        const info = TRAEGER_INFO[verein];
+        const accent = getTeamAccent(verein);
+        return (
+          <span
+            key={verein}
+            title={info.name}
+            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 font-inter text-xs font-medium ${accent.badge}`}
+          >
+            {info.label}
+            <span className="sr-only"> – {info.name}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function VereinsAuswahl({
+  nutzer,
+  onAendern,
+  disabled = false,
+}: {
+  nutzer: Nutzer;
+  onAendern: (verein: Traeger, ausgewaehlt: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <fieldset
+      aria-busy={disabled}
+      className="rounded-lg border border-fcb-border bg-fcb-bg px-2.5 py-1.5"
+    >
+      <legend className="px-1 font-inter text-xs font-medium uppercase tracking-wider text-fcb-muted">
+        Verein<span className="sr-only"> für {nutzer.vorname} {nutzer.nachname}</span>
+      </legend>
+      <div className="flex items-center gap-3">
+        {VEREINS_OPTIONEN.map((verein) => {
+          const info = TRAEGER_INFO[verein];
+          const accent = getTeamAccent(verein);
+          const ausgewaehlt = nutzer.verein.includes(verein);
+          return (
+            <label
+              key={verein}
+              title={info.name}
+              className={`inline-flex items-center gap-1.5 font-inter text-xs ${
+                ausgewaehlt ? accent.text : "text-fcb-muted"
+              } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+            >
+              <input
+                type="checkbox"
+                checked={ausgewaehlt}
+                disabled={disabled}
+                onChange={(event) => onAendern(verein, event.target.checked)}
+                className="h-4 w-4 rounded border-fcb-border accent-fcb-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fcb-accent"
+              />
+              {info.label}
+              <span className="sr-only"> – {info.name}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
   const supabase = createClient();
   // Mannschaftsanfragen wurden in MannschaftsanfragenVerwaltung.tsx ausgelagert
@@ -44,6 +131,7 @@ export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
   const [expandedUserIds, setExpandedUserIds] = useState<string[]>([]);
   const [fehler, setFehler] = useState("");
   const [erfolg, setErfolg] = useState("");
+  const [vereinSpeichertIds, setVereinSpeichertIds] = useState<string[]>([]);
 
   useEffect(() => {
     ladeNutzer();
@@ -53,7 +141,7 @@ export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
   const ladeNutzer = async () => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, vorname, nachname, telefonnummer, rolle, mannschaft")
+      .select("id, vorname, nachname, telefonnummer, rolle, mannschaft, verein")
       .order("nachname");
 
     if (error) {
@@ -81,6 +169,56 @@ export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
     } else {
       setErfolg("Rolle erfolgreich geändert.");
       ladeNutzer();
+    }
+  };
+
+  const vereinAendern = async (
+    userId: string,
+    verein: Traeger,
+    ausgewaehlt: boolean
+  ) => {
+    if (eigeneRolle !== "admin") {
+      setFehler("Nur Admins dürfen Vereinszuordnungen ändern.");
+      return;
+    }
+    if (vereinSpeichertIds.includes(userId)) return;
+    setFehler("");
+    setErfolg("");
+
+    const betroffenerNutzer = nutzer.find((eintrag) => eintrag.id === userId);
+    if (!betroffenerNutzer) return;
+
+    const bisherigeVereine = new Set(betroffenerNutzer.verein.filter(istTraeger));
+    if (ausgewaehlt) {
+      bisherigeVereine.add(verein);
+    } else {
+      bisherigeVereine.delete(verein);
+    }
+    const neueVereine = VEREINS_OPTIONEN.filter((option) =>
+      bisherigeVereine.has(option)
+    );
+
+    // Pro Nutzer ist nur ein Vereins-Update gleichzeitig erlaubt, damit zwei
+    // schnelle Checkbox-Klicks nicht denselben veralteten Ausgangswert nutzen.
+    setVereinSpeichertIds((ids) => [...ids, userId]);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ verein: neueVereine })
+        .eq("id", userId);
+
+      if (error) {
+        setFehler("Fehler beim Ändern der Vereinszuordnung: " + error.message);
+      } else {
+        setErfolg("Vereinszuordnung erfolgreich geändert.");
+        await ladeNutzer();
+      }
+    } catch (error) {
+      const meldung =
+        error instanceof Error ? error.message : "Unbekannter Fehler";
+      setFehler("Fehler beim Ändern der Vereinszuordnung: " + meldung);
+    } finally {
+      setVereinSpeichertIds((ids) => ids.filter((id) => id !== userId));
     }
   };
 
@@ -143,6 +281,13 @@ export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
         </p>
       )}
 
+      {eigeneRolle === "admin" && (
+        <Banner
+          variant="info"
+          message="Die Vereinszuordnung steuert die Mitgliederverwaltung: Vorstände sehen und verwalten dort nur Mitglieder der hier zugeordneten Vereine. Die Nutzerliste auf dieser Seite ist davon nicht betroffen."
+        />
+      )}
+
       {/* Ausstehende Anfragen */}
       {ausstehende.length > 0 && (
         <section>
@@ -170,15 +315,28 @@ export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
                         Mannschaft(en): {n.mannschaft.join(", ")}
                       </p>
                     )}
+                    <div className="mt-2">
+                      <VereinsBadges vereine={n.verein} />
+                    </div>
                   </div>
                   {/* Dropdown statt fester Buttons – freischalten geschieht implizit
                       durch Auswahl einer Nicht-ausstehend-Rolle. ROLLEN_OPTIONEN
                       enthält "ausstehend" für beide Rollen, daher immer sichtbar. */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-end gap-2">
+                    {eigeneRolle === "admin" && (
+                      <VereinsAuswahl
+                        nutzer={n}
+                        disabled={vereinSpeichertIds.includes(n.id)}
+                        onAendern={(verein, ausgewaehlt) =>
+                          vereinAendern(n.id, verein, ausgewaehlt)
+                        }
+                      />
+                    )}
                     {/* w-36 entspricht der festen Breite im "Aktive Nutzer"-Block */}
                     <select
                       value={n.rolle}
                       onChange={(e) => rolleAendern(n.id, e.target.value)}
+                      aria-label={`Rolle für ${n.vorname} ${n.nachname} ändern`}
                       className="w-36 rounded-lg border border-fcb-border bg-fcb-bg px-2 py-1.5 font-inter text-sm text-fcb-text focus:outline-none focus-visible:ring-2 focus-visible:ring-fcb-accent/40 focus:border-fcb-accent"
                     >
                       {erlaubteRollen.map((r) => (
@@ -211,6 +369,7 @@ export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
         {/* Suchfeld retokenisiert – kein .form-field mehr */}
         <input
           type="text"
+          aria-label="Nutzer suchen"
           placeholder="Nutzer suchen …"
           value={suche}
           onChange={(e) => setSuche(e.target.value)}
@@ -229,22 +388,42 @@ export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
                     {n.vorname} {n.nachname}
                   </p>
                   {/* Rolle als Badge – visuell konsistent mit ROLLEN_BADGE-Mapping */}
-                  <div className="mt-1">
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <Badge variant={(ROLLEN_BADGE[n.rolle]?.variant) ?? "neutral"}>
                       {ROLLEN_BADGE[n.rolle]?.label ?? n.rolle}
                     </Badge>
+                    <VereinsBadges vereine={n.verein} />
                   </div>
+                  {n.rolle === "vorstand" && n.verein.length === 0 && (
+                    <div className="mt-2 max-w-md">
+                      <Banner
+                        variant="warning"
+                        message="Kein Verein zugeordnet – sieht keine Mitglieder."
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  {eigeneRolle === "admin" && (
+                    <VereinsAuswahl
+                      nutzer={n}
+                      disabled={vereinSpeichertIds.includes(n.id)}
+                      onAendern={(verein, ausgewaehlt) =>
+                        vereinAendern(n.id, verein, ausgewaehlt)
+                      }
+                    />
+                  )}
                   <button
                     onClick={() => toggleDetails(n.id)}
+                    aria-expanded={expandedUserIds.includes(n.id)}
+                    aria-controls={`nutzer-details-${n.id}`}
                     className="font-inter text-sm text-fcb-muted hover:text-fcb-text transition-colors flex items-center gap-1"
                   >
                     {expandedUserIds.includes(n.id) ? (
-                      <>Details ausblenden <ChevronUp className="w-4 h-4" /></>
+                      <>Details ausblenden <ChevronUp aria-hidden className="w-4 h-4" /></>
                     ) : (
-                      <>Weitere Infos <ChevronDown className="w-4 h-4" /></>
+                      <>Weitere Infos <ChevronDown aria-hidden className="w-4 h-4" /></>
                     )}
                   </button>
 
@@ -263,6 +442,7 @@ export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
                       <select
                         value={n.rolle}
                         onChange={(e) => rolleAendern(n.id, e.target.value)}
+                        aria-label={`Rolle für ${n.vorname} ${n.nachname} ändern`}
                         className="w-full rounded-lg border border-fcb-border bg-fcb-bg px-2 py-1.5 font-inter text-sm text-fcb-text focus:outline-none focus-visible:ring-2 focus-visible:ring-fcb-accent/40 focus:border-fcb-accent"
                       >
                         {erlaubteRollen.map((r) => (
@@ -285,7 +465,10 @@ export default function BenutzerListe({ eigeneRolle }: BenutzerListeProps) {
               </div>
 
               {expandedUserIds.includes(n.id) && (
-                <div className="mt-3 font-inter text-sm space-y-1 text-fcb-muted">
+                <div
+                  id={`nutzer-details-${n.id}`}
+                  className="mt-3 font-inter text-sm space-y-1 text-fcb-muted"
+                >
                   {n.telefonnummer && <p>Telefon: {n.telefonnummer}</p>}
                   {n.mannschaft && n.mannschaft.length > 0 && (
                     <p>Mannschaft(en): {n.mannschaft.join(", ")}</p>

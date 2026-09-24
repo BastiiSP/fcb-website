@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { MapPin, Phone, Users } from "lucide-react";
 import { createClient } from "@/lib/supabaseClient";
 
-// Nur die für das Verzeichnis relevanten Felder aus der profiles-Tabelle
+// Nur die für das Verzeichnis relevanten Felder aus der geschützten RPC
 type TrainerProfil = {
   id: string;
   vorname: string;
@@ -37,17 +37,19 @@ export default function TrainerVerzeichnis() {
 
   const ladeProfile = async () => {
     setLaden(true);
-    // Datenschutz: Trainer sehen KEINE Vereinsmitglieder, nur andere Trainer/Vorstand/Admin
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, vorname, nachname, telefonnummer, rolle, mannschaft, strasse, plz, ort")
-      .in("rolle", ["trainer", "vorstand", "admin"])
-      .order("nachname");
+    // Die RPC ist die einzige freigegebene Datenquelle für das Verzeichnis,
+    // damit kein direkter SELECT auf sensible Profildaten nötig ist.
+    const { data, error } = await supabase.rpc("trainer_verzeichnis");
 
     if (error) {
       setFehler("Fehler beim Laden des Verzeichnisses: " + error.message);
     } else {
-      setProfile(data ?? []);
+      const eintraege = (data ?? []) as TrainerProfil[];
+      setProfile(
+        [...eintraege].sort((a, b) =>
+          a.nachname.localeCompare(b.nachname, "de")
+        )
+      );
     }
     setLaden(false);
   };

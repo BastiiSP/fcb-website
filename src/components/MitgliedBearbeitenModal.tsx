@@ -1,12 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useId, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
+import { useTenant } from "@/components/tenant/TenantProvider";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import TextField from "@/components/ui/TextField";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import {
+  getTeamAccent,
+  TRAEGER_INFO,
+  type Traeger,
+} from "@/lib/teams";
 
 // Typdefinition für ein Vereinsmitglied – spiegelt das DB-Schema der mitglieder-Tabelle
 export type Mitglied = {
@@ -20,6 +26,7 @@ export type Mitglied = {
   eintrittsdatum: string | null;
   status: "aktiv" | "passiv" | "ehrenamt" | "gekündigt";
   mannschaft: string[] | null;
+  verein: string[];
   notizen: string | null;
   erstellt_von: string | null;
   created_at: string;
@@ -36,8 +43,11 @@ type MitgliedFormData = {
   eintrittsdatum: string;
   status: "aktiv" | "passiv" | "ehrenamt" | "gekündigt";
   mannschaftText: string; // Kommagetrennte Eingabe, wird beim Speichern in TEXT[] konvertiert
+  verein: Traeger[];
   notizen: string;
 };
+
+type MitgliedTextFeld = Exclude<keyof MitgliedFormData, "verein">;
 
 const LEERES_FORMULAR: MitgliedFormData = {
   vorname: "",
@@ -48,6 +58,7 @@ const LEERES_FORMULAR: MitgliedFormData = {
   eintrittsdatum: "",
   status: "aktiv",
   mannschaftText: "",
+  verein: [],
   notizen: "",
 };
 
@@ -59,6 +70,14 @@ const STATUS_SELECT_OPTIONEN = [
   { value: "gekündigt", label: "Gekündigt" },
 ];
 
+const VEREINS_OPTIONEN = ["fcb", "jfg"] as const satisfies readonly Traeger[];
+
+function istTraeger(wert: string): wert is Traeger {
+  return VEREINS_OPTIONEN.some((verein) => verein === wert);
+}
+
+export type VerwaltungsRolle = "admin" | "vorstand";
+
 type Props = {
   show: boolean;
   onClose: () => void;
@@ -66,6 +85,8 @@ type Props = {
   initialData: Mitglied | null; // null = Hinzufügen-Modus, Objekt = Bearbeiten-Modus
   onSave: () => void;
   eigeneUserId: string; // wird beim INSERT als erstellt_von gesetzt
+  eigeneRolle: VerwaltungsRolle;
+  eigeneVereine: string[];
 };
 
 export default function MitgliedBearbeitenModal({
@@ -75,9 +96,14 @@ export default function MitgliedBearbeitenModal({
   initialData,
   onSave,
   eigeneUserId,
+  eigeneRolle,
+  eigeneVereine,
 }: Props) {
+  const tenant = useTenant();
+  const vereinFehlerId = useId();
   const [form, setForm] = useState<MitgliedFormData>(LEERES_FORMULAR);
   const [fehler, setFehler] = useState("");
+  const [vereinFehler, setVereinFehler] = useState("");
   const [speichert, setSpeichert] = useState(false);
 
   // Formular befüllen wenn Modal geöffnet wird – leeren bei Hinzufügen-Modus
@@ -93,25 +119,63 @@ export default function MitgliedBearbeitenModal({
         eintrittsdatum: initialData.eintrittsdatum ?? "",
         status: initialData.status,
         mannschaftText: initialData.mannschaft?.join(", ") ?? "",
+        verein: initialData.verein.filter(istTraeger),
         notizen: initialData.notizen ?? "",
       });
     } else {
-      setForm(LEERES_FORMULAR);
+      const darfAktuellenTenantZuweisen =
+        eigeneRolle === "admin" || eigeneVereine.includes(tenant.id);
+      setForm({
+        ...LEERES_FORMULAR,
+        // Der aktuelle Auftritt ist nur dann ein sicherer Default, wenn die
+        // eingeloggte Person diesen Verein laut Profil zuweisen darf.
+        verein: darfAktuellenTenantZuweisen ? [tenant.id] : [],
+      });
     }
     setFehler("");
-  }, [show, initialData]);
+    setVereinFehler("");
+  }, [show, initialData, eigeneRolle, eigeneVereine, tenant.id]);
 
   const handleChange = (
-    field: keyof MitgliedFormData,
+    field: MitgliedTextFeld,
     value: string
   ) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const darfVereinZuweisen = (verein: Traeger) =>
+    eigeneRolle === "admin" || eigeneVereine.includes(verein);
+
+  const vereinUmschalten = (verein: Traeger) => {
+    // Die UI spiegelt den DB-Trigger: Vorstände dürfen fremde Zuordnungen
+    // weder ergänzen noch von einem bestehenden Mitglied entfernen.
+    if (!darfVereinZuweisen(verein)) return;
+    setForm((prev) => ({
+      ...prev,
+      verein: prev.verein.includes(verein)
+        ? prev.verein.filter((eintrag) => eintrag !== verein)
+        : [...prev.verein, verein],
+    }));
+    setVereinFehler("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.vorname.trim() || !form.nachname.trim()) {
       setFehler("Vorname und Nachname sind Pflichtfelder.");
+      return;
+    }
+    if (form.verein.length === 0) {
+      setVereinFehler("Bitte mindestens einen Verein auswählen.");
+      return;
+    }
+    if (
+      eigeneRolle === "vorstand" &&
+      !form.verein.some((verein) => darfVereinZuweisen(verein))
+    ) {
+      setVereinFehler(
+        "Bitte mindestens einen Verein auswählen, den du verwalten darfst."
+      );
       return;
     }
 
@@ -133,23 +197,20 @@ export default function MitgliedBearbeitenModal({
       eintrittsdatum: form.eintrittsdatum || null,
       status: form.status,
       mannschaft: mannschaftArray.length > 0 ? mannschaftArray : null,
+      verein: form.verein,
       notizen: form.notizen.trim() || null,
     };
 
-    let error;
-
-    if (initialData) {
-      // UPDATE – bestehenden Datensatz aktualisieren
-      ({ error } = await supabase
+    const { error } = initialData
+      ? await supabase
         .from("mitglieder")
         .update(payload)
-        .eq("id", initialData.id));
-    } else {
-      // INSERT – neues Mitglied anlegen und erstellt_von mit dem aktuellen User befüllen
-      ({ error } = await supabase
+        .eq("id", initialData.id)
+      : await supabase
         .from("mitglieder")
-        .insert({ ...payload, erstellt_von: eigeneUserId }));
-    }
+        // erstellt_von hält die fachliche Herkunft fest; die Berechtigung
+        // selbst wird weiterhin ausschließlich durch RLS entschieden.
+        .insert({ ...payload, erstellt_von: eigeneUserId });
 
     setSpeichert(false);
 
@@ -248,6 +309,68 @@ export default function MitgliedBearbeitenModal({
           options={STATUS_SELECT_OPTIONEN}
           required
         />
+
+        <fieldset
+          aria-required="true"
+          aria-invalid={vereinFehler ? "true" : undefined}
+          aria-describedby={vereinFehler ? vereinFehlerId : undefined}
+          className="space-y-2"
+        >
+          <legend className="font-inter text-xs font-medium uppercase tracking-wider text-fcb-muted">
+            Verein <span className="normal-case text-fcb-red">*</span>
+            <span className="sr-only">
+              Pflichtfeld, mindestens eine Auswahl
+            </span>
+          </legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {VEREINS_OPTIONEN.map((verein) => {
+              const info = TRAEGER_INFO[verein];
+              const accent = getTeamAccent(verein);
+              const ausgewaehlt = form.verein.includes(verein);
+              const darfBearbeiten = darfVereinZuweisen(verein);
+
+              return (
+                <label
+                  key={verein}
+                  title={info.name}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 font-inter text-sm transition-colors ${
+                    ausgewaehlt
+                      ? `${accent.border} ${accent.bgSoft}`
+                      : "border-fcb-border bg-fcb-bg"
+                  } ${darfBearbeiten ? "cursor-pointer" : "cursor-not-allowed opacity-70"}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={ausgewaehlt}
+                    disabled={!darfBearbeiten}
+                    onChange={() => vereinUmschalten(verein)}
+                    className="h-4 w-4 rounded border-fcb-border accent-fcb-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fcb-accent"
+                  />
+                  <span className={ausgewaehlt ? accent.text : "text-fcb-text"}>
+                    {info.label}
+                    <span className="sr-only"> – {info.name}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          {eigeneRolle === "vorstand" &&
+            form.verein.some((verein) => !darfVereinZuweisen(verein)) && (
+              <p className="font-inter text-xs text-fcb-muted">
+                Bereits zugeordnete fremde Vereine bleiben sichtbar, können von
+                dir aber nicht geändert werden.
+              </p>
+            )}
+          {vereinFehler && (
+            <p
+              id={vereinFehlerId}
+              role="alert"
+              className="font-inter text-xs text-fcb-red"
+            >
+              {vereinFehler}
+            </p>
+          )}
+        </fieldset>
 
         {/* Mannschaft(en) – kommagetrennte Eingabe für bessere UX als Freitext */}
         <TextField

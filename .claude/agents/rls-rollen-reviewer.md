@@ -26,21 +26,22 @@ wechseln. Nur `admin` darf `vorstand`/`admin` vergeben.
 
 ## Bekannte Schwachstellen, die bei jedem Review erneut geprüft werden müssen
 
-1. **`profiles.rolle`-Schreibzugriff**: Die Eskalationsregel wird aktuell NUR
-   clientseitig in `src/components/BenutzerListe.tsx` (`ROLLEN_OPTIONEN`,
-   `rolleAendern()`) durchgesetzt – der eigentliche `.update({ rolle })`-Call läuft über
-   den normalen Supabase-Client und unterliegt ausschließlich der `profiles`-UPDATE-RLS-
-   Policy. Bei jeder Änderung an dieser Policy verifizieren: Kann ein `vorstand`-Aufrufer
-   per direktem REST-Call trotzdem `rolle` auf `vorstand`/`admin` setzen? Kann ein Nutzer
-   seine eigene Zeile eskalieren? Falls ja → kritischer Fund.
+1. **`profiles.rolle`-Schreibzugriff** (Stand 2026-09-24, DB-seitig erzwungen):
+   Policy „Vorstand und Admin vergeben Rollen" lässt vorstand nur Zeilen mit alter UND
+   neuer Rolle in `ausstehend`/`mitglied`/`trainer` zu; Trigger
+   `trg_prevent_role_escalation` blockt Vergeben UND Entziehen von `vorstand`/`admin`
+   durch Nicht-Admins; `trg_prevent_self_role_change` blockt eigene Rolle/Mannschaft;
+   `trg_prevent_fremdprofil_aenderung` erlaubt vorstand an fremden Profilen nur `rolle`.
+   Bei jeder Änderung an diesen Policies/Triggern erneut prüfen, ob ein direkter
+   REST-Call mit Vorstand-JWT vorstand/admin vergeben oder entziehen, fremde Stammdaten
+   ändern oder die eigene Zeile eskalieren kann. Falls ja → kritischer Fund.
+   Regressionstests: `npm run test:e2e:security` (e2e/security.spec.ts).
 2. **Service-Role-Routen umgehen RLS komplett**: `src/app/api/benutzer-ablehnen/route.ts`
-   nutzt `SUPABASE_SERVICE_ROLE_KEY` und löscht per `auth.admin.deleteUser(userId)` einen
-   Account, ohne den Aufrufer zu authentifizieren oder dessen Rolle zu prüfen – der
-   Request-Body liefert nur `userId`. Jede neue oder geänderte Route unter
-   `src/app/api/*`, die den Service-Role-Key nutzt oder eine privilegierte Aktion
-   ausführt, muss serverseitig Session + Rolle des Aufrufers prüfen (z. B. mit
-   `src/utils/checkSession.ts` / `getUserRolle.ts`). Fehlt das, ist es ein kritischer
-   Fund – melden, nicht stillschweigend selbst fixen, außer explizit beauftragt.
+   prüft Access-Token, Aufrufer-Rolle (vorstand/admin), kein Selbstlöschen und dass das
+   ZIEL `ausstehend` ist (seit 2026-09-24). Jede neue oder geänderte Route unter
+   `src/app/api/*`, die den Service-Role-Key nutzt, muss serverseitig Aufrufer UND Ziel
+   prüfen. Fehlt das → kritischer Fund – melden, nicht stillschweigend selbst fixen.
+   Hinweis: `service_role` braucht eigene Tabellen-GRANTs (fehlten bis 2026-09-24).
 3. **`buchungen`-Policies**: Nur `trainer`/`vorstand`/`admin` dürfen
    INSERT/UPDATE/DELETE, `mitglied`/`ausstehend` nicht. Jede Erweiterung der
    Schreibrechte auf weitere Rollen widerspricht dem Rollenkonzept.
@@ -50,7 +51,13 @@ wechseln. Nur `admin` darf `vorstand`/`admin` vergeben.
    20260707120000_create_sportheim_anfragen.sql`).
 5. **GRANT nicht vergessen**: Ohne `grant select, insert, update, delete on
    public.<tabelle> to authenticated;` greift RLS nie – schon zweimal vergessen
-   (`buchungen`, `mitglieder`).
+   (`buchungen`, `mitglieder`). Dasselbe gilt für `service_role` (Default-Privileges
+   seit 2026-09-24 gesetzt, bei manuell angelegten Tabellen trotzdem prüfen).
+6. **Tenant-Trennung `mitglieder`**: vorstand sieht/ändert nur Zeilen mit
+   `verein && get_own_verein()`; `trg_mitglieder_verein_guard` verhindert
+   Hinzufügen/Entfernen fremder Vereine; `profiles.verein` darf nur admin ändern
+   (`trg_prevent_verein_aenderung`). Neue Policies auf `mitglieder` müssen dieses Muster
+   übernehmen.
 
 ## Vorgehen
 
