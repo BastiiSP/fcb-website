@@ -10,6 +10,23 @@ Website des 1. FC 1911 Burgkunstadt – ein echter Fußballverein aus Burgkunsta
 - **Supabase Project Ref**: jktvmckqfklfziszfsxf
 - **Lokaler Pfad**: `~/Workspace/fcb-website/`
 
+## Multi-Tenant (FCB + JFG) – eine Codebasis, zwei Auftritte
+
+- **Domains**: `www.fcbuku.de` (FCB) · `www.jfg-kunstadt-obermain.de` (JFG, live seit 2026-07-29)
+- **Erkennung**: `src/proxy.ts` (Next-16-Nachfolger von `middleware` – NICHT verschieben/umbenennen,
+  ein `middleware.ts` wird still ignoriert) setzt den Header `x-tenant`; das Root-Layout setzt daraus
+  `data-tenant` auf `<html>` → steuert das Token `fcb-accent` (FCB blau / JFG rot).
+- **Einzige Quelle für Markenwerte** (Name, Logo, Nav, Domain, Feed): `src/lib/tenant.ts`
+  (framework-neutral, Config muss serialisierbar bleiben). Server: `getTenant()` aus
+  `lib/tenant.server.ts` (macht die Route dynamisch – gewollt). Client: `components/tenant/TenantProvider.tsx`.
+  Markentexte: `lib/vereinstexte.ts` (redaktionell), `lib/rechtstexte.ts` (Impressum/Datenschutz).
+- **Test ohne Domain**: `?tenant=jfg` / `?tenant=fcb` an die URL (Cookie `fcb-tenant`). Auf
+  Produktionsdomains ignoriert; Preview-Hosts und localhost sind ohne Override immer FCB.
+- **Regeln**: Keine Markennamen/Logos/Texte hart codieren. Markenexklusive Routen (z. B.
+  `/sportheim`, nur FCB) per `notFound()` + `generateMetadata()` absichern. Bei UI-/Text-/
+  Routing-Änderungen den Agent `multi-tenant-konsistenz-reviewer` nutzen; E2E-Tests über
+  Skill `e2e-tenant-test-schreiben`.
+
 ## Tech Stack
 
 - **Next.js 16** mit App Router
@@ -34,6 +51,11 @@ Niemals ohne Rücksprache ändern. Das Rollensystem ist das Herzstück der Zugan
 | `admin` | IT-Verantwortlicher | Alles + Vorstandsrollen und Admin-Rollen vergeben |
 
 **Wichtig:** Vorstand darf zwischen `ausstehend` / `mitglied` / `trainer` wechseln. Nur `admin` darf `vorstand` und `admin` vergeben.
+Das erzwingt zusätzlich die DB: Trigger `trg_prevent_role_escalation` (nur admin vergibt
+vorstand/admin) und `trg_prevent_self_role_change` auf `profiles` – beide live. Rollen-Labels:
+`src/lib/rollen.ts`. Privilegierte API-Routen (z. B. `api/benutzer-ablehnen`) prüfen Access-Token
++ Rolle des Aufrufers serverseitig. Vor Änderungen an RLS/Rollenlogik: Skill
+`rls-rollenkonzept-check` und Agent `rls-rollen-reviewer`.
 
 ## Datenbankschema (Phase 1 – aktiv)
 
@@ -70,8 +92,26 @@ Niemals ohne Rücksprache ändern. Das Rollensystem ist das Herzstück der Zugan
 | `buchende_person` | TEXT | NOT NULL |
 | `bemerkung` | TEXT | optional |
 | `user_id` | UUID | FK → auth.users, ON DELETE SET NULL |
+| `serien_id` | UUID | optional – gemeinsame ID aller Termine einer Serienbuchung (`lib/serienbuchung.ts`) |
 | `created_at` | TIMESTAMPTZ | auto |
 | `updated_at` | TIMESTAMPTZ | auto via Trigger |
+
+Optionslisten/Labels der CHECK-Felder: `src/lib/buchungsOptionen.ts` (single source of truth).
+
+### Tabelle: `sportheim_anfragen` (FCB)
+
+Öffentliche Sportheim-Anfragen + interne Sperrtermine in einer Zeitquelle.
+`typ`: anfrage / sperrung · `status`: offen / angenommen / abgelehnt. CHECKs erzwingen
+Pflicht-Kontaktdaten bei `anfrage` und leere Personendaten + `angenommen` bei `sperrung`.
+RLS: anon + authenticated dürfen nur INSERTen mit `typ='anfrage'`, `status='offen'`,
+`erstellt_von IS NULL`; Lesen/Ändern/Löschen/Sperrungen nur vorstand/admin. Die öffentliche Belegung liefert die Funktion `sportheim_belegte_zeiten()` (ohne
+Personendaten). Details: `supabase/migrations/20260707120000_create_sportheim_anfragen.sql`.
+
+### Storage & Migrationen
+
+- Bucket `avatars` – Profilbilder, öffentliche URL landet in `profiles.avatar_url`.
+- Migrationen liegen versioniert in `supabase/migrations/` – neue Migration dort ablegen UND per
+  MCP anwenden (danach live prüfen, nicht nur committen).
 
 ### Tabelle: `mitglieder` (Phase 2 – aktiv)
 
@@ -142,7 +182,9 @@ src/
 │   ├── news/page.tsx              ← News-Seite (Instagram-only, kein CMS)
 │   ├── kontakt/page.tsx           ← Öffentliche Kontaktseite
 │   ├── platzbuchung/page.tsx      ← Buchungskalender (nur trainer/vorstand/admin), Redirect von /kalender
-│   ├── vorstandsbereich/page.tsx  ← Vorstandsbereich inkl. Buchungsübersicht (nur vorstand/admin), Redirect von /vorstand
+│   ├── meine-buchungen/page.tsx   ← Eigene Platzbuchungen (alle Eingeloggten, Sichtbarkeit per RLS)
+│   ├── sportheim/page.tsx         ← Sportheim: Belegungskalender + öffentliche Anfrage (NUR FCB, JFG → 404)
+│   ├── vorstandsbereich/page.tsx  ← Vorstandsbereich inkl. Buchungs- und Sportheim-Anfragen (nur vorstand/admin), Redirect von /vorstand
 │   ├── mitglieder/page.tsx        ← Trainer-Verzeichnis (Rolle trainer) / Mitgliederverwaltung (vorstand/admin) – einheitliche H1 „Mitglieder" seit 2026-07-10, rollenspezifischer Untertitel
 │   ├── mein-verein/page.tsx       ← Vereinslinks & Info (mitglied + höher)
 │   ├── profil/page.tsx            ← Profilverwaltung (alle eingeloggten Rollen)
@@ -153,14 +195,18 @@ src/
 │       ├── spielbetrieb/route.ts  ← Debug-Endpoint für BFV-Daten (?team=herren-1)
 │       ├── instagram/route.ts     ← Instagram-Feed (Behold)
 │       ├── keep-alive/route.ts    ← Supabase-Ping (Haupt-Keepalive läuft als GitHub Action, s. Tabelle keepalive)
-│       └── benutzer-ablehnen/route.ts
+│       └── benutzer-ablehnen/route.ts  ← Account löschen (prüft Token + vorstand/admin serverseitig)
+├── proxy.ts                       ← Tenant-Erkennung (x-tenant), s. „Multi-Tenant"
 ├── components/
 │   ├── Header.tsx                 ← Smart-Sticky-Nav, kanonisches Design-Vorbild
 │   (Navigation.tsx entfernt seit 2026-07-07 – Nav-Links leben in UserDropdown.tsx, Konstante ALLE_LINKS, seit 2026-07-10 rollenunabhängig für alle eingeloggten Nutzer sichtbar)
 │   ├── Footer.tsx                 ← Dreispaltig, enthält den Theme-Umschalter
 │   ├── ConditionalChrome.tsx      ← Blendet Header/Footer auf Auth-Routen aus
 │   ├── UserDropdown.tsx           ← Nutzer-Menü in der Nav
+│   ├── VereinsSwitcher.tsx        ← Wechsel zwischen FCB- und JFG-Domain im Header
 │   ├── Buchungsformular.tsx / BearbeitenModal.tsx / LoeschenModal.tsx
+│   ├── MeineBuchungen.tsx         ← Liste für /meine-buchungen
+│   ├── SportheimAnfragenVerwaltung.tsx  ← Sportheim-Anfragen + Sperrtermine im Vorstandsbereich
 │   ├── BuchungenVerwaltung.tsx    ← Buchungsübersicht im Vorstand-Bereich (Filter, Pagination, Mobile-Cards)
 │   ├── BenutzerListe.tsx          ← Nutzerverwaltung + Mannschaftsanfragen im Vorstand-Bereich
 │   ├── MannschaftsanfragenVerwaltung.tsx
@@ -169,7 +215,11 @@ src/
 │   ├── ToastMessage.tsx           ← Globale Erfolgs-/Fehlermeldungen
 │   ├── ui/                        ← Design-System-Primitive: Button, ButtonLink, buttonStyles,
 │   │                                Card, Banner, Badge, IconBadge, TeamCard, Modal, PageShell,
-│   │                                PageHeader, Tabs, Select, TextField, Textarea, ThemeToggle
+│   │                                PageHeader, Tabs, Select, TextField, Textarea, ThemeToggle,
+│   │                                ZugriffsHinweis, reactSelectTheme
+│   ├── tenant/TenantProvider.tsx  ← Tenant-Config für Client Components
+│   ├── kalender/                  ← FullCalendar-Bausteine (EventChip, KalenderToolbar)
+│   ├── sportheim/                 ← SportheimBereich, SportheimKalender, SportheimAnfrageFormular
 │   ├── icons/BrandIcons.tsx       ← Facebook/Instagram/WhatsApp/Google als Inline-SVG (Lucide hat keine Brand-Icons)
 │   ├── spielbetrieb/              ← BFV-UI: SpielbetriebSection, SpielbetriebExplorer (Verein → Mannschaft), SpielbetriebCard
 │   ├── news/NewsPostCard.tsx      ← Instagram-Post-Card der News-Seite
@@ -187,6 +237,12 @@ src/
 │   └── useTheme.ts                ← Theme lesen/umschalten (localStorage + .dark/.light auf <html>)
 ├── lib/
 │   ├── supabaseClient.ts          ← Supabase-Singleton (anon key); Exporte: `supabase` + `createClient()`
+│   ├── tenant.ts / tenant.server.ts  ← Markenkonfiguration FCB/JFG (s. „Multi-Tenant")
+│   ├── vereinstexte.ts / rechtstexte.ts  ← Markentexte (/verein, /kontakt) bzw. Impressum/Datenschutz je Marke
+│   ├── rollen.ts                  ← ROLLEN_LABELS (deutsche Rollen-Anzeigenamen)
+│   ├── buchungsOptionen.ts        ← Optionen + Labels der buchungen-CHECK-Felder
+│   ├── serienbuchung.ts           ← Serienbuchungen anlegen/bearbeiten (serien_id)
+│   ├── sportheim.ts / sportheimAnfragenTypes.ts  ← Sportheim-Inhalte (Preise = PLATZHALTER) + Typen
 │   ├── teams.ts                   ← Team-Daten + getTeamAccent() (FCB/JFG-Akzent-Klassen)
 │   ├── mannschaften.ts            ← Mannschaftsliste für Formulare (Konstanten)
 │   ├── bfv.ts                     ← BFV-Widget-API: BFV_TEAMS-Konfiguration + getSpielbetrieb()
@@ -199,7 +255,6 @@ src/
 │   └── auth/signInWithGoogle.ts   ← Google-OAuth-Start
 └── utils/
     ├── checkSession.ts            ← Session + Rolle prüfen
-    ├── getUserRolle.ts            ← Rolle eines Users abrufen
     ├── fetchEvents.ts             ← Buchungen laden
     ├── getEventColor.ts           ← Kalender-Farben nach Mannschaft
     ├── formatKalenderTitel.ts     ← Buchungstitel formatieren
@@ -207,8 +262,27 @@ src/
     └── passwortStaerke.ts         ← Passwort-Stärke-Berechnung
 ```
 
-Außerhalb von `src/`: `e2e/smoke.spec.ts` (Playwright-Smoke-Suite) und
+Außerhalb von `src/`: `e2e/smoke.spec.ts` (Playwright-Smoke-Suite),
+`supabase/migrations/` (versionierte Migrationen) und
 `.github/workflows/supabase-keepalive.yml` (Keepalive-Cron, s. Tabelle `keepalive`).
+Claude-Automatisierungen: `.claude/skills/` (Projekt-Skills) und `.claude/agents/`
+(`rls-rollen-reviewer`, `multi-tenant-konsistenz-reviewer`).
+
+### Bild-Assets: `public/` vs. `assets-source/`
+
+- **`public/`** – aktiv von der Website ausgelieferte, bereits optimierte Dateien (z. B.
+  `logo-fc-redwitz.png`, `logo-sg-roth-main.png`, `logo-jfg.png`, `stadtwappen-burgkunstadt.svg`,
+  je 512×512px). Wird direkt referenziert, hier landen nur einsatzbereite Web-Versionen.
+- **`assets-source/`** – hochauflösende Original-/Quelldateien, die nicht direkt ausgeliefert
+  werden (kein `public/`-Unterordner, taucht also nicht auf der Website auf). Dient als Backup/
+  Rohmaterial, falls Logos später neu zugeschnitten oder in höherer Auflösung gebraucht werden.
+  - `assets-source/wappen/` – Vereinswappen in Originalgröße (z. B. `fc-redwitz.png`,
+    `sg-roth-main.png`, beide 1254×1254px), Gegenstücke zu den optimierten Logos in `public/`.
+
+**Faustregel bei neuen Bild-Dateien für dieses Projekt:** Fertige, für die Website optimierte
+Assets → `public/` (flach, sprechender Dateiname). Hochauflösende Rohdateien/Originale, die nur
+als Quelle dienen → `assets-source/<kategorie>/`. Bei Unsicherheit, ob eine Datei schon als
+Web-Version existiert: vorher `public/` auf ähnliche Dateinamen prüfen, um Dopplungen zu vermeiden.
 
 ## BFV-Spielbetrieb (Tabelle & Spiele)
 
@@ -268,129 +342,37 @@ git commit -m "feat: [beschreibung]"
 git push
 ```
 
-## Design-Spec (abgestimmt mit Claudian – Stand 2026-07-07)
+## Design-Spec (abgestimmt mit Claudian – verbindlich)
 
-Alle Designentscheidungen wurden gemeinsam mit Basti besprochen und sind verbindlich.
-Bei neuen Komponenten und Änderungen **immer** diese Spec einhalten.
-Die vollständige Designdokumentation liegt in der Obsidian-Projektdatei `02 Projekte/FCB Website.md`.
+Detailwerte (Token-Hexwerte, Card-/Button-/Icon-/Banner-Varianten, TeamCard-Aufbau) stehen
+im Skill `fcb-komponente-bauen` → `.claude/skills/fcb-komponente-bauen/design-spec.md`.
+Vollständige Designdoku: Obsidian `02 Projekte/FCB Website.md`. Kanonische Vorbilder:
+`Header.tsx` und die Primitive in `src/components/ui/` – erst dort prüfen, dann bauen.
 
-> **Status:** Die Design-Migration ist abgeschlossen (Design-System + Dual-Theme live seit
-> 2026-06-19). **Alle Routen** laufen auf den semantischen `fcb.*`-Tokens und unterstützen
-> Hell- und Dunkel-Theme (Default: dunkel, Umschalter im Footer); auch Hero und Auth-Seiten
-> folgen dem Theme (bewusste Entscheidung, keine always-dark-Inseln). Kanonische Vorbilder:
-> `Header.tsx` und die Primitive in `src/components/ui/`.
-> **Neue Komponenten müssen in beiden Themes funktionieren** – Tokens statt fester Farben,
-> beim manuellen Test einmal umschalten.
-
-### Vereinskontext
-- **FCB** = 1. FC 1911 Burgkunstadt – Mannschaften: 2× Herren, E-/F-/G-Jugend
-- **JFG** = JFG Kunstadt-Obermain – Leistungsjugend: A-/B-/C-/D-Jugend (teils B1+B2)
-- FCB und JFG teilen dieselbe Basis-Palette, unterscheiden sich durch ihre Akzentfarbe
-
-### Farbpalette (Dual-Theme)
-Die `fcb.*`-Klassen (`tailwind.config.ts`) sind **semantische Tokens**: Sie lösen über
-CSS-Variablen aus `globals.css` auf, die je nach `.dark`-/`.light`-Klasse auf `<html>`
-andere Werte tragen (`darkMode: "class"`, Default dunkel, Umschalter im Footer /
-`hooks/useTheme.ts`). Opacity-Modifier funktionieren (`bg-fcb-surface/80`). Nur die
-Brand-Akzente `blue`/`red` sind feste Hex-Werte, in beiden Themes konstant.
-
-| Token | Klasse | Dark | Light | Verwendung |
-|---|---|---|---|---|
-| Hintergrund | `bg-fcb-bg` | `#0a0a0a` | `#ffffff` | Seiten-BG, Hero, Sections |
-| Surface | `bg-fcb-surface` | `#161616` | `#f5f5f5` | Cards, Panels, Modals |
-| Footer | `bg-fcb-footer` | `#262626` | `#e5e5e5` | Reserve – aktuell ungenutzt (Footer nutzt `fcb-surface`) |
-| Border | `border-fcb-border` | `#2a2a2a` | `#d4d4d4` | Trennlinien, Rahmen |
-| Text | `text-fcb-text` | `#ffffff` | `#111111` | Primärtext |
-| Muted | `text-fcb-muted` | `#888888` | `#5a5a5a` | Datum, Metainfo |
-| Navbar | `bg-fcb-nav` | `#52525b` | `#e4e4e7` | Reserve – aktuell ungenutzt (Header nutzt `fcb-surface`) |
-| FCB-Blau | `text-fcb-blue` / `bg-fcb-blue` | `#1d5fad` | (konstant) | FCB-Akzent: Links, aktive States, CTAs |
-| JFG-Rot | `text-fcb-red` / `bg-fcb-red` | `#cc1f1f` | (konstant) | JFG-Bereich-Akzent |
-
-### Typografie
-- **Display / Headlines**: `font-oswald` → Oswald (via `next/font/google`, CSS-Variable – lädt zuverlässig) – Gewicht 600–700, gerne Großbuchstaben. **Hinweis:** `font-display` existiert ebenfalls, ist aber NICHT an `next/font` gebunden → für neue Komponenten `font-oswald` nehmen.
-- **Fließtext / UI**: `font-inter` → Inter – Gewicht 400/500. Der Body-Default ist Inter (via `globals.css` über die CSS-Variable aus `layout.tsx`); `font-oswald` wird per Klasse aktiviert.
-
-### Design-Prinzipien
-- **Keine Emojis** in der UI – ausschließlich Lucide-Icons
-- **Smart-Sticky-Nav**: verschwindet beim Scrollen nach unten, erscheint beim Scrollen nach oben (Framer Motion)
-- **Framer Motion** für alle Animationen (Einblendungen, Hover, Übergänge)
-- **Ladescreen**: Beim ersten Aufruf kurzer FCB-Ladescreen (~1,5 Sek.) mit Wappen auf schwarzem Hintergrund
-- **Accessibility**: Kontrast WCAG AA einhalten, Fokus-States immer sichtbar
-- **Keine magic hex-values** im Code – immer `fcb.*`-Tokens verwenden
-
-### Cards & Flächen
-Basis-Primitive: `src/components/ui/Card.tsx` (rückwärtskompatibel erweitert um `interactive` + `accent`).
-
-| Eigenschaft | Wert | Verwendung |
-|---|---|---|
-| Radius groß | `rounded-2xl` (16 px) | Cards, Panels, Modals |
-| Radius klein | `rounded-lg` (8 px) | Banner, Buttons, Inputs, kleine Flächen |
-| Border | `border border-fcb-border` (1 px) | jede Card – Flächen heben sich per Border ab, nicht per Schatten |
-| Fläche | `bg-fcb-surface` | Standard-Card-Hintergrund |
-| Padding | `p-6` | Standard; kompakte Flächen `p-4` |
-| Akzentkante | Card-Prop `accent` (blue/red) → `border-l-4` in Trägerfarbe | Bereichs-/Trägerzuordnung: FCB = blue, JFG = red |
-| Hover | Card-Prop `interactive` → Border färbt sich zum Akzent (`transition-colors`, 200 ms) | nur klickbare/verlinkte Cards; statische Cards ohne Hover |
-
-- **Card vs. Banner**: Card = strukturierender Inhalts-Container (Gruppen, Listen-Items, Teaser). Banner (`ui/Banner.tsx`) = Statusmeldung mit Icon (error/info/success/warning) – nie als Layout-Container zweckentfremden.
-- **Akzentflächen/Tints** immer als Token mit Opacity-Modifier: `bg-<akzent>/10` + `border-<akzent>/40` (Badge-/Banner-Muster) – nie voll gesättigte Flächen für dezente Hervorhebung.
-- **Kein Scale/Lift** beim Card-Hover – die Border-Farbe ist die Affordanz.
-
-### Buttons
-Primitive: `src/components/ui/Button.tsx` – Basis: `rounded-lg font-oswald font-semibold uppercase tracking-wide`, sichtbarer Fokus-Ring (`focus-visible:ring-2` in `fcb-blue`).
-
-| Variante | Optik | Wann |
-|---|---|---|
-| `primary` | `bg-fcb-blue text-white`, Hover `/90` | Hauptaktion – max. eine pro View/Formular |
-| `secondary` | `border-fcb-border bg-fcb-surface`, Hover-Border blau | gleichwertige/neutrale Nebenaktionen |
-| `ghost` | nur Text, Hover `text-fcb-blue` | tertiäre/Inline-Aktionen, Abbrechen |
-| `danger` | `bg-fcb-red text-white`, Hover `/90` | destruktive Aktionen (Löschen) – immer mit Bestätigungs-Modal |
-
-| Größe | Padding/Text | Wann |
-|---|---|---|
-| `sm` | `px-3 py-1.5 text-xs` | Tabellen-/Listen-Aktionen |
-| `md` | `px-4 py-2.5 text-sm` | Standard (Formulare, Modals) |
-| `lg` | `px-5 py-3 text-base` | Hero-/Seiten-CTAs |
-
-- **Icon im Button**: Lucide, `size={16}` bei sm/md, `size={20}` bei lg, immer `aria-hidden` (der Button-Text trägt die Bedeutung); Abstand kommt aus dem `gap-2` der Button-Basis.
-- **Icon-only-Buttons** brauchen zwingend ein deutsches `aria-label`.
-
-### Icons
-Nur **Lucide** (`lucide-react`); Brand-/Social-Icons ausschließlich über `src/components/icons/BrandIcons.tsx`.
-
-| Größe | Einsatz |
-|---|---|
-| `16` | inline im Text, Buttons sm/md, Meta-Zeilen, Banner |
-| `20` | Standard: Navigation, Buttons lg, Listen-Icons |
-| `24` | Feature-Icons, Empty-States, Icon-Badge lg |
-
-- **strokeWidth**: Standard `2`; nur große dekorative Icons (≥ 28 px) dürfen `1.5` für leichtere Optik.
-- **Icon-Badge-Muster** (`src/components/ui/IconBadge.tsx`): Lucide-Icon in dezentem Container – Tint `bg-<akzent>/10` + `border-<akzent>/40`, Akzent `neutral`/`blue`/`red`, Größen `sm` (32 px Box / 16er-Icon, `rounded-lg`), `md` (40/20, `rounded-xl`), `lg` (48/24, `rounded-xl`). Für Feature-Aufzählungen, Card-Köpfe, Team-Cards.
-- **A11y**: dekorative Icons `aria-hidden`; bedeutungstragende Icons mit deutschem `aria-label` (IconBadge: `label`-Prop → `role="img"`).
-
-### Banner / Statusmeldungen
-Primitiv: `src/components/ui/Banner.tsx` – vier Varianten, je mit fester Farbe + Lucide-Icon:
-
-| Variante | Farbe | Icon | Einsatz |
-|---|---|---|---|
-| `warning` | Gelb (`border-yellow-500/40 bg-yellow-500/10`, Icon `text-yellow-600 dark:text-yellow-500`) | `TriangleAlert` | **Standard für „wartet auf Freigabe/Prüfung"**-Meldungen (z. B. Konto-Status `ausstehend`) – nicht pro Fall neu einfärben, immer dieses Gelb |
-| `info` | FCB-Blau (`border-fcb-blue/40 bg-fcb-blue/10`, Icon `text-fcb-blue`) | `Info` | neutrale Hinweise ohne Handlungsdruck, z. B. „Rolle reicht für diesen Bereich nicht aus" (`ZugriffsHinweis`) |
-| `success` | Grün | `CheckCircle2` | erfolgreiche Aktionen |
-| `error` | Rot (`fcb-red`) | `AlertCircle` | Fehler, blockierende Probleme |
-
-- **Rollen-Zugriffshinweis** (`src/components/ui/ZugriffsHinweis.tsx`): einheitliche Komponente für Seiten mit Rollen-Gate (`/kalender`, `/vorstand`, `/mitglieder`, `/mein-verein`). Unterscheidet bewusst zwei Fälle statt einer generischen „Kein Zugriff"-Meldung: Rolle `ausstehend` oder fehlend/unbekannt (fail-closed) → `warning`-Banner „Konto wartet auf Freigabe"; jede andere, bereits freigeschaltete Rolle ohne ausreichende Berechtigung → `info`-Banner „Rolle nicht vorgesehen". Das Account-Menü (`UserDropdown.tsx`) zeigt dafür allen eingeloggten Rollen (inkl. `ausstehend`) grundsätzlich alle Bereiche – die Zielseite kommuniziert fehlenden Zugriff selbst, statt den Link zu verstecken.
-- **Banner vs. eigene Sperrseite**: Bei Rollen-Gates immer `ZugriffsHinweis` statt eine Seite händisch mit „Kein Zugriff"-Überschrift zu bauen – sonst entsteht wieder visuelle Uneinheitlichkeit.
-
-### Mannschaftsdarstellung
-- **Träger bestimmt den Akzent**: FCB-Teams (Herren, E-/F-/G-Jugend) → `fcb-blue`; JFG-Jugendteams (A-/B-/C-/D-Junioren) → `fcb-red`. Klassen-Sets liefert `getTeamAccent(traeger)` aus `src/lib/teams.ts` – nie manuell zusammenbauen.
-- **Team-Daten**: `interface Team` in `src/lib/teams.ts` (`id`, `name`, `kurzname?`, `altersklasse?`, `liga?`, `traeger: "fcb" | "jfg"`, `beschreibung?`, `trainer?: string[]`).
-- **Team-Card** (`src/components/ui/TeamCard.tsx`): interaktive Card mit Akzentkante links in Trägerfarbe. Aufbau von oben nach unten:
-  1. Kopfzeile: `IconBadge` (Users-Icon, Trägerakzent) links, Träger-Badge (`FCB`/`JFG`, Pill mit Tint) rechts
-  2. Teamname `font-oswald` uppercase + Altersklasse/Liga in `text-fcb-muted`
-  3. optionale Beschreibung
-  4. Trainer-Slot unter Trennlinie (`border-t border-fcb-border`) – aus `team.trainer` oder frei per `trainerSlot`-Prop
-- **Träger-Badge** immer mit vollem Vereinsnamen für Screenreader (`TRAEGER_INFO` liefert Label + Namen).
-- **Mobile-first**: volle Breite; ab `sm` im Grid (`grid gap-4 sm:grid-cols-2 lg:grid-cols-3`).
-- **Einblendung**: dezente Framer-Motion-Einblendung (`whileInView`, y 16→0, einmalig, 0,4 s) – identisch zum Homepage-Muster; respektiert `prefers-reduced-motion`.
+- **Vereinskontext**: FCB = 1. FC 1911 Burgkunstadt (2× Herren, E-/F-/G-Jugend) · JFG =
+  JFG Kunstadt-Obermain (A-/B-/C-/D-Jugend, teils B1+B2). Gleiche Basis-Palette, andere Akzentfarbe.
+- **Dual-Theme**: `fcb.*`-Tokens (`bg-fcb-bg`, `bg-fcb-surface`, `border-fcb-border`,
+  `text-fcb-text`, `text-fcb-muted`) lösen per CSS-Variablen je `.dark`/`.light` auf (Default
+  dunkel, Umschalter im Footer). Alle Routen inkl. Hero/Auth folgen dem Theme – keine
+  always-dark-Inseln. **Jede Komponente in beiden Themes testen.** Keine magic hex, kein `gray-*`.
+- **Akzent**: `fcb-accent` (tenant-abhängig, FCB blau / JFG rot) für alles generische
+  Marken-Chrome (Buttons, Links, aktive States, Fokus). `fcb-blue`/`fcb-red` nur für feste
+  Trägerzuordnung von Teams (`getTeamAccent(traeger)` aus `lib/teams.ts`) und `danger`/`error`.
+- **Typografie**: Headlines `font-oswald` (600–700, gern uppercase – NICHT `font-display`,
+  das ist nicht an next/font gebunden), Fließtext `font-inter`.
+- **Flächen**: Cards `rounded-2xl border border-fcb-border bg-fcb-surface p-6`, Abhebung per
+  Border statt Schatten, Hover nur Border-Farbe (kein Scale/Lift). Tints immer
+  `bg-<akzent>/10` + `border-<akzent>/40`.
+- **Keine Emojis** – nur Lucide (Brand-Icons über `BrandIcons.tsx`). **Framer Motion** für alle
+  Animationen, `prefers-reduced-motion` respektieren. Smart-Sticky-Nav und ~1,5 s Ladescreen
+  mit Wappen sind gesetzt.
+- **A11y**: WCAG AA, Fokus-States immer sichtbar, Icon-only-Buttons mit deutschem `aria-label`.
+- **Statusmeldungen**: `ui/Banner.tsx`. „Wartet auf Freigabe/Prüfung" ist immer `warning`
+  (gelb). **Rollen-Gates** immer über `ui/ZugriffsHinweis.tsx` statt eigener
+  „Kein Zugriff"-Seite: `ausstehend`/unbekannte Rolle (fail-closed) → `warning` „Konto wartet
+  auf Freigabe"; freigeschaltete, aber unzureichende Rolle → `info` „Rolle nicht vorgesehen".
+  `UserDropdown.tsx` zeigt allen Eingeloggten alle Bereiche – die Zielseite kommuniziert den
+  fehlenden Zugriff selbst.
 
 ## Arbeitsweise: Plan-Modus
 

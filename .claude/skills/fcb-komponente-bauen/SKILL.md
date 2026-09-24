@@ -24,8 +24,9 @@ always-dark-Inseln wieder einführen). Es gibt keine `gray-*`-Altlasten mehr im 
 | Baustein | Korrekter Wert |
 |---|---|
 | Tailwind-Version | **3.4.1** – KEIN v4. Keine `@theme`-Directive, kein `tailwind.config` in CSS. Klassen wie gewohnt in `tailwind.config.ts`. |
-| Farb-Tokens | `bg-fcb-bg` `bg-fcb-surface` `border-fcb-border` `text-fcb-text` `text-fcb-muted` `text-fcb-blue` `text-fcb-red`. Semantisch: lösen per CSS-Variablen aus `globals.css` auf (Dual-Theme), Opacity-Modifier wie `bg-fcb-surface/80` funktionieren. **Keine magic hex, kein `gray-*`.** (`fcb-nav`/`fcb-footer` existieren als Reserve, sind aber ungenutzt – Header und Footer nutzen `fcb-surface`.) |
-| UI-Primitive | **Erst `src/components/ui/` prüfen, bevor selbst gebaut wird:** `Button`, `ButtonLink` (+ `buttonStyles` für Server-Kontexte), `Card`, `Banner`, `Badge`, `IconBadge`, `TeamCard`, `Modal`, `PageShell`, `PageHeader`, `Tabs`, `Select`, `TextField`, `Textarea`, `ThemeToggle`. Varianten/Größen stehen in der Design-Spec in CLAUDE.md. |
+| Marken-Akzent | **`fcb-accent`** für alles generische Marken-Chrome (Buttons, Links, aktive States, Fokus-Ringe) – wechselt per `data-tenant` zwischen FCB-Blau und JFG-Rot. `fcb-blue`/`fcb-red` NUR für feste Trägerzuordnung (Team gehört zu FCB/JFG, `getTeamAccent`) und `danger`/`error`. Primitive-Varianten heißen dafür `brand`. |
+| Farb-Tokens | `bg-fcb-bg` `bg-fcb-surface` `border-fcb-border` `text-fcb-text` `text-fcb-muted` `fcb-accent` `fcb-blue` `fcb-red`. Semantisch: lösen per CSS-Variablen aus `globals.css` auf (Dual-Theme), Opacity-Modifier wie `bg-fcb-surface/80` funktionieren. **Keine magic hex, kein `gray-*`.** (`fcb-nav`/`fcb-footer` existieren als Reserve, sind aber ungenutzt – Header und Footer nutzen `fcb-surface`.) |
+| UI-Primitive | **Erst `src/components/ui/` prüfen, bevor selbst gebaut wird:** `Button`, `ButtonLink` (+ `buttonStyles` für Server-Kontexte), `Card`, `Banner`, `Badge`, `IconBadge`, `TeamCard`, `Modal`, `PageShell`, `PageHeader`, `Tabs`, `Select`, `TextField`, `Textarea`, `ThemeToggle`, `ZugriffsHinweis`. **Varianten, Größen und Detailwerte: [design-spec.md](design-spec.md)** – vor dem Bauen lesen. |
 | Theme-Zugriff | `hooks/useTheme.ts` (lesen/umschalten) + `lib/theme.ts` (`applyTheme`, `DEFAULT_THEME: dark`). Nie direkt `document.documentElement.classList` manipulieren. |
 | Headline-Font | `font-oswald` (CSS-Var-gebunden, lädt zuverlässig). `font-display` existiert auch, ist aber NICHT an next/font gebunden → für neue Komponenten `font-oswald` nehmen. |
 | Body-Font | `font-inter` |
@@ -56,7 +57,8 @@ Diese Komponente zeigt das vollständige moderne Muster – beim Bauen daran ori
 - **A11y**: Fokus-States sichtbar lassen, Kontrast WCAG AA, jedes interaktive Element mit
   Label/`aria-label` (deutsch). Zum Prüfen: Skill `chrome-devtools-mcp:a11y-debugging`.
 - **Deutsch**: alle sichtbaren Texte, `alt`, `aria-label`, Kommentare.
-- **FCB = Blau (`fcb-blue`), JFG = Rot (`fcb-red`)** – Akzent nach Bereich wählen.
+- **Akzent**: Marken-Chrome → `fcb-accent` (tenant-abhängig). Feste Zuordnung zu einem Verein/Team → FCB = `fcb-blue`, JFG = `fcb-red`.
+- **Multi-Tenant**: Keine Markennamen, Logos oder Texte hart codieren – aus `lib/tenant.ts` (`getTenant()` / `TenantProvider`) lesen. Mit `?tenant=jfg` im Browser gegenprüfen.
 
 ## Workflow-Checkliste
 
@@ -74,6 +76,7 @@ Diese Komponente zeigt das vollständige moderne Muster – beim Bauen daran ori
 
 | Fehler | Folge / Fix |
 |---|---|
+| `bg-fcb-blue` für Button/Link/Fokus in geteilter UI | Auf der JFG-Domain falsch blau. `fcb-accent` nutzen. |
 | `gray-*` / magic hex in neuer Komponente | Bricht das Dual-Theme (Farbe passt nur in einem Theme). `fcb.*`-Tokens nutzen. |
 | Nur im Dark-Theme (Default) getestet | Light-Theme-Bugs bleiben unsichtbar. Umschalter im Footer, beide prüfen. |
 | Button/Card/Modal selbst nachgebaut | Drift vom Design-System. Primitive aus `src/components/ui/` verwenden. |
