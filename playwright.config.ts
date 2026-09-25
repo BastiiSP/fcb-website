@@ -6,10 +6,15 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
+  // Reine Unit-Tests laufen über playwright.unit.config.ts ohne Dev-Server
+  testIgnore: ["bfv.spec.ts"],
   fullyParallel: true,
   forbidOnly: false,
-  retries: 0,
-  workers: undefined,
+  // Lokal keine Retries, damit echte Flakes sichtbar bleiben; auf CI einmal wiederholen
+  retries: process.env.CI ? 1 : 0,
+  // Fest 2 Worker: Mit der Default-Anzahl (CPU-Kerne/2) überlastet der
+  // Next-Dev-Server beim On-Demand-Kompilieren und die Suite flakt
+  workers: 2,
   reporter: "list",
   use: {
     baseURL: "http://localhost:3000",
