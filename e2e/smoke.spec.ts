@@ -614,6 +614,21 @@ test.describe("Hero – rotierendes Wort auf Mobile", () => {
         await page.setViewportSize({ width: breite, height: 820 });
         await page.goto(`/?tenant=${tenant.id}`, { waitUntil: "load" });
 
+        // Erst nach der Hydration ins DOM schreiben: 'load' kommt im Dev-Modus oft
+        // vor der Hydration. Setzt der Test das Wort vorher, findet React fremden
+        // Text im Server-HTML und wirft "Hydration failed" (Ursache der beiden
+        // Warnungen pro Testlauf, geklärt 2026-09-25). React hängt beim Hydrieren
+        // ein __reactFiber$…-Property an den Knoten – das ist das Signal.
+        await page.waitForFunction(() => {
+          const p = [...document.querySelectorAll("p")].find((el) =>
+            el.textContent?.includes("Dein Verein für")
+          );
+          const wortSpan = p?.querySelector("span:last-child span");
+          return (
+            !!wortSpan && Object.keys(wortSpan).some((k) => k.startsWith("__reactFiber"))
+          );
+        });
+
         const hoehen: number[] = [];
         for (const wort of tenant.heroWords) {
           const m = await page.evaluate((w) => {
