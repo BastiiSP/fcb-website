@@ -9,7 +9,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   // Liste muss mit testIgnore in playwright.config.ts übereinstimmen
-  testMatch: ["bfv.spec.ts"],
+  testMatch: ["bfv.spec.ts", "passwort-leak.spec.ts"],
   fullyParallel: true,
   retries: 0,
   reporter: "list",

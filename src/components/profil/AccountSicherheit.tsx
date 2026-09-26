@@ -8,6 +8,8 @@ import {
   berechnePasswortStaerke,
   passwortStaerkeLabel,
   passwortStaerkefarbe,
+  pruefePasswortLeak,
+  PASSWORT_GELEAKT_MELDUNG,
   type PasswortFeedback,
 } from "@/utils/passwortStaerke";
 import TextField from "@/components/ui/TextField";
@@ -116,6 +118,14 @@ export default function AccountSicherheit({ aktuelleEmail }: AccountSicherheitPr
       return;
     }
 
+    const leak = await pruefePasswortLeak(neuesPasswort);
+    if (leak.status === "geleakt") {
+      setPasswortFehler(PASSWORT_GELEAKT_MELDUNG);
+      setPasswortLaden(false);
+      return;
+    }
+
+    // Bei Dienstausfall gelten weiter die lokalen Regeln; der Wechsel bleibt möglich.
     // Re-Authentifizierung mit aktuellem Passwort vor der Änderung
     const { error: reAuthError } = await supabase.auth.signInWithPassword({
       email: aktuelleEmail,

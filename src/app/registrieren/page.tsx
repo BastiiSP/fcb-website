@@ -6,8 +6,10 @@ import { MailCheck } from "lucide-react";
 import { createClient } from "@/lib/supabaseClient";
 import { signInWithGoogle } from "@/lib/auth/signInWithGoogle";
 import {
+  PASSWORT_GELEAKT_MELDUNG,
   berechnePasswortFeedback,
   berechnePasswortStaerke,
+  pruefePasswortLeak,
 } from "@/utils/passwortStaerke";
 import PitchAuthShell from "@/components/auth/PitchAuthShell";
 import GoogleButton from "@/components/auth/GoogleButton";
@@ -32,6 +34,7 @@ export default function RegistrierungsSeite() {
   const [fehler, setFehler] = useState("");
   const [googleHinweis, setGoogleHinweis] = useState("");
   const [abgeschlossen, setAbgeschlossen] = useState(false);
+  const [laeuft, setLaeuft] = useState(false);
 
   const feedback = useMemo(() => berechnePasswortFeedback(passwort), [passwort]);
   const staerke = useMemo(() => berechnePasswortStaerke(feedback), [feedback]);
@@ -54,24 +57,38 @@ export default function RegistrierungsSeite() {
       setFehler("Die Passwörter stimmen nicht überein.");
       return;
     }
-    const { error } = await supabase.auth.signUp({
-      email,
-      password: passwort,
-      options: {
-        // origin-relativ: lokal, Preview und Produktion zeigen jeweils korrekt
-        // (vorher hart auf www.fcbuku.de verdrahtet).
-        emailRedirectTo: `${window.location.origin}/confirm-email`,
-        // Telefonnummer entfällt bewusst – Trigger schreibt dann NULL.
-        // Der Tenant befüllt profiles.verein bei der Registrierung vor; nur
-        // Admins dürfen diese Zuordnung später ändern.
-        data: { vorname, nachname, verein: tenant.id },
-      },
-    });
-    if (error) {
-      console.error("Supabase-Fehler:", error.message);
-      setFehler(`Registrierung fehlgeschlagen: ${error.message}`);
-    } else {
-      setAbgeschlossen(true);
+    setLaeuft(true);
+    try {
+      const leak = await pruefePasswortLeak(passwort);
+      if (leak.status === "geleakt") {
+        setFehler(PASSWORT_GELEAKT_MELDUNG);
+        return;
+      }
+      // Bei unbekanntem Status bleibt die Registrierung möglich (Fail-open).
+      const { error } = await supabase.auth.signUp({
+        email,
+        password: passwort,
+        options: {
+          // origin-relativ: lokal, Preview und Produktion zeigen jeweils korrekt
+          // (vorher hart auf www.fcbuku.de verdrahtet).
+          emailRedirectTo: `${window.location.origin}/confirm-email`,
+          // Telefonnummer entfällt bewusst – Trigger schreibt dann NULL.
+          // Der Tenant befüllt profiles.verein bei der Registrierung vor; nur
+          // Admins dürfen diese Zuordnung später ändern.
+          data: { vorname, nachname, verein: tenant.id },
+        },
+      });
+      if (error) {
+        console.error("Supabase-Fehler:", error.message);
+        setFehler(`Registrierung fehlgeschlagen: ${error.message}`);
+      } else {
+        setAbgeschlossen(true);
+      }
+    } catch (error) {
+      console.error("Supabase-Fehler:", error);
+      setFehler("Registrierung fehlgeschlagen. Bitte versuche es erneut.");
+    } finally {
+      setLaeuft(false);
     }
   };
 
@@ -145,7 +162,7 @@ export default function RegistrierungsSeite() {
           autoComplete="new-password"
         />
         <AuthErrorBanner message={fehler} />
-        <AuthSubmitButton disabled={!gueltig}>Jetzt registrieren</AuthSubmitButton>
+        <AuthSubmitButton disabled={!gueltig || laeuft}>Jetzt registrieren</AuthSubmitButton>
         <AuthSwitchPrompt frage="Bereits registriert?" aktion="Hier einloggen" href="/login" />
       </form>
     </PitchAuthShell>

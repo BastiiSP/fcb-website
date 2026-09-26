@@ -237,3 +237,21 @@ test.describe("Vereins-Switcher", () => {
     await expect(jfgLink).toHaveAttribute("href", /jfg-kunstadt-obermain\.de\/$/);
   });
 });
+
+// Die Datenschutzerklärung ist eine gemeinsame Seite für beide Marken. Neue
+// Pflichtabschnitte (hier: Leak-Check bei Registrierung/Passwort ändern) dürfen
+// nicht versehentlich hinter eine Tenant-Bedingung rutschen.
+test.describe("Datenschutz je Marke", () => {
+  for (const tenant of ["fcb", "jfg"] as const) {
+    test(`${tenant.toUpperCase()} erklärt die Passwort-Leak-Prüfung`, async ({ page }) => {
+      await seedConsent(page);
+      await page.goto(`/datenschutz?tenant=${tenant}`);
+
+      await expect(page.locator("html")).toHaveAttribute("data-tenant", tenant);
+      await expect(
+        page.getByRole("heading", { name: /Prüfung auf unsichere Passwörter/ })
+      ).toBeVisible();
+      await expect(page.getByText(/k-Anonymity-Verfahren/)).toBeVisible();
+    });
+  }
+});
