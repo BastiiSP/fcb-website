@@ -7,7 +7,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   // Reine Unit-Tests laufen über playwright.unit.config.ts ohne Dev-Server
-  testIgnore: ["bfv.spec.ts"],
+  testIgnore: ["bfv.spec.ts", "passwort-leak.spec.ts"],
   fullyParallel: true,
   forbidOnly: false,
   // Lokal keine Retries, damit echte Flakes sichtbar bleiben; auf CI einmal wiederholen
