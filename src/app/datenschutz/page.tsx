@@ -19,7 +19,7 @@ export default async function DatenschutzPage() {
   const angaben = RECHTSTEXTE[tenant.id];
 
   return (
-    <RechtstextLayout titel="Datenschutzerklärung" stand="Juli 2026">
+    <RechtstextLayout titel="Datenschutzerklärung" stand="September 2026">
       <p className="font-inter leading-relaxed text-fcb-text/80">
         Der Schutz deiner persönlichen Daten ist uns wichtig. Nachfolgend
         erklären wir, welche Daten beim Besuch und bei der Nutzung dieser
@@ -123,6 +123,36 @@ export default async function DatenschutzPage() {
           Nutzungsverhältnisses durch Anlage deines Kontos) in Verbindung mit
           deiner im Google-Anmeldedialog erteilten Einwilligung (Art. 6 Abs. 1
           lit. a DSGVO).
+        </p>
+      </RechtstextSektion>
+
+      {/* Bewusst ohne Tenant-Bedingung: Registrierung und Passwort-Ändern gibt
+          es auf beiden Auftritten (FCB + JFG). Technik: /api/passwort-leak-check. */}
+      <RechtstextSektion titel="Prüfung auf unsichere Passwörter (Pwned Passwords)">
+        <p>
+          Wenn du dich registrierst oder dein Passwort änderst, prüfen wir, ob
+          das gewählte Passwort bereits in bekannten Datenlecks aufgetaucht ist.
+          Dazu nutzen wir den kostenlosen Dienst „Pwned Passwords“ von Have I
+          Been Pwned (Betreiber: Troy Hunt, Australien; ausgeliefert über
+          Cloudflare).
+        </p>
+        <p>
+          Dein Passwort verlässt dabei <strong>weder im Klartext noch als
+          vollständiger Hashwert</strong> deinen Browser: Dein Browser berechnet
+          einen SHA-1-Hashwert und übermittelt nur dessen erste fünf Zeichen an
+          unseren Server. Unser Server fragt damit eine Liste von mehreren hundert
+          möglichen Treffern ab; der eigentliche Abgleich findet ausschließlich
+          in deinem Browser statt (sogenanntes k-Anonymity-Verfahren). Die Anfrage
+          an Have I Been Pwned stellt unser Server, daher wird{" "}
+          <strong>keine IP-Adresse und keine sonstigen personenbezogenen Daten
+          deines Browsers</strong> an den Dienst übermittelt. Weder wir noch Have
+          I Been Pwned speichern das Ergebnis der Prüfung.
+        </p>
+        <p>
+          Ist der Dienst nicht erreichbar, entfällt die Prüfung und die
+          Registrierung bzw. Passwortänderung funktioniert trotzdem.
+          Rechtsgrundlage ist unser berechtigtes Interesse an der Sicherheit der
+          Nutzerkonten (Art. 6 Abs. 1 lit. f DSGVO).
         </p>
       </RechtstextSektion>
 
