@@ -70,7 +70,7 @@ Diese Komponente zeigt das vollständige moderne Muster – beim Bauen daran ori
 6. **Beide Themes prüfen**: Umschalter im Footer – Komponente muss hell UND dunkel funktionieren (Kontrast, Borders, Tints).
 7. **Lint**: `npm run lint`. (`npm run build` kann lokal an Turbopack+FullCalendar scheitern – wenn der Fehler ausschließlich daher rührt, kein Blocker; Vercel-Build greift. Ersatz: `npx tsc --noEmit`.) Bei größeren UI-Änderungen zusätzlich `npm run test:e2e` (Playwright-Smoke).
 8. **Commit & Push** auf `main` (`feat:`/`fix:`-Präfix), Vercel deployt automatisch.
-9. **Claudian-Update** im vorgeschriebenen Format ausgeben (Sektion „Manuell zu testen" ist Pflicht).
+9. **AI Brain Update** im Format der Projektwurzel (`AGENTS.md`/`CLAUDE.md`) ausgeben; konkrete manuelle Testschritte unter „Prüfung“ sind Pflicht.
 
 ## Häufige Fehler
 

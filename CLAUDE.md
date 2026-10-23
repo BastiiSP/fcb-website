@@ -62,31 +62,35 @@ Vorstand darf nur ausstehend/mitglied/trainer vergeben. Nur Admin vergibt **und 
 - `npm run build` kann lokal an Turbopack/FullCalendar-Auflösung scheitern. Den konkreten Fehler zuordnen, nicht jeden Buildfehler pauschal ausnehmen; lint und TypeScript vor autorisiertem Push prüfen.
 - `.env.local`: `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Preview-Platzhalter im Client erlauben Build ohne produktive Werte.
 - Push auf main löst Vercel-Deployment aus. Nur eigene beauftragte Änderungen gezielt stagen.
-- **Arbeitsweise: Plan-Modus.** Handover-Prompts von Claudian sind grundsätzlich für den Plan-Modus formuliert: Sie beschreiben Ziele und Anforderungen, keine Implementierungsschritte. Den Prompt vollständig lesen, einen strukturierten Plan erstellen (Was, in welcher Reihenfolge, warum so) und auf Bastis Freigabe warten – erst dann Code schreiben. Ausnahme: klar umrissene Micro-Fixes (einzelne CSS-Anpassung, einzeiliger Bug-Fix, Text-Änderung) direkt umsetzen.
-- Nach Aufgaben konkrete vollständige manuelle Browser-Schritte mit Seite, Aktion, erwartetem Ergebnis und Fehlermerkmalen liefern; Sektion nie leer. Der Nutzer testet vor der nächsten Entwicklungsaufgabe.
+- **Arbeitsweise: Plan-Modus.** Handover-Prompts aus dem AI Brain sind grundsätzlich für den Plan-Modus formuliert: Sie beschreiben Ziele und Anforderungen, keine Implementierungsschritte. Den Prompt vollständig lesen, einen strukturierten Plan erstellen (Was, in welcher Reihenfolge, warum so) und auf Bastis Freigabe warten – erst dann Code schreiben. Ausnahme: klar umrissene Micro-Fixes (einzelne CSS-Anpassung, einzeiliger Bug-Fix, Text-Änderung) direkt umsetzen.
+- Nach Aufgaben unter „Prüfung“ konkrete vollständige manuelle Browser-Schritte mit Seite, Aktion, erwartetem Ergebnis und Fehlermerkmalen liefern; diese Testschritte nie leer lassen. Der Nutzer testet vor der nächsten Entwicklungsaufgabe.
 
 ## Pflege dieses Dateipaars
 
 Direkte aktuelle Nutzeraufträge haben Vorrang. Vor Regeländerungen beide Dateien lesen und Unterschiede inhaltlich zusammenführen; gültige Regeln erhalten. AGENTS.md und CLAUDE.md unmittelbar gemeinsam ändern und danach mit `cmp` auf Bytegleichheit prüfen. Anbieterunterschiede ausdrücklich kennzeichnen und in beiden Dateien führen. Codex lädt AGENTS.md; Claude Code lädt bei diesem Paar CLAUDE.md.
 
-## Abschluss: Claudian-Update
+## Abschluss: AI Brain Update
 
-Nach jeder erledigten Implementierungsaufgabe dieses Format mit tatsächlichen Ergebnissen ausgeben; es ersetzt keine unabhängige Prüfung:
+Zum Abschluss, bei Übergabe oder Abbruch eines Arbeitsauftrags ein kompaktes, eigenständig verständliches Update in diesem Format ausgeben; auch bei Recherche, Planung und Dokumentation. Reine Zwischenfragen und Brainstorming normal und knapp beantworten. Projekt eindeutig benennen, Datum des Arbeitsstands in Europe/Berlin verwenden und tatsächliche Ergebnisse von Plänen unterscheiden. Alle vier Abschnitte beibehalten; fehlende Prüfungen und leere Angaben ehrlich kennzeichnen. Keine Zugangsdaten oder privaten absoluten Pfade aufnehmen. Das Update ersetzt keine unabhängige Prüfung und behauptet keine automatische Übertragung ins AI Brain.
+
+Unter „Prüfung“ zusätzlich manuelle Testschritte als „Seite → Aktion → Erwartung; Fehlermerkmale“ angeben.
+
 ```text
-## Claudian-Update – [Datum]
+## AI Brain Update – [Projekt] – [YYYY-MM-DD]
 
-### Implementiert
-- [Was gebaut / geändert wurde]
+**Projektkennung:** [Workspace-Ordner oder Repository]
+**Auftrag:** [Kurze Beschreibung]
+**Stand:** [abgeschlossen / teilweise / blockiert; Version oder Commit, falls vorhanden]
 
-### Getestet
-- [Was getestet wurde und Ergebnis]
+### Ergebnis
+- [Tatsächliche Änderungen oder Erkenntnisse; relevante Dateien/Artefakte]
 
-### Manuell zu testen
-- [Seite → Aktion → Erwartung; Fehlermerkmale]
+### Prüfung
+- [Durchgeführte Prüfung und Ergebnis; nicht geprüft bzw. unabhängige Abnahme offen ausdrücklich nennen]
 
-### Offen / Nächster Block
-- [Was als nächstes kommt]
+### Offen / Nächster Schritt
+- [Offene Punkte, Blocker und nächster Schritt; sonst keine]
 
-### Technische Notizen
-- [Wichtige Entscheidungen, neue Pakete, IDs etc.]
+### Hinweise
+- [Bestätigte Entscheidungen von Vorschlägen trennen; fachliche/technische Besonderheiten, neue Pakete, IDs etc.; sonst keine]
 ```

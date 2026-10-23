@@ -89,7 +89,7 @@ Rollenkonzept – im Zweifel mit Basti klären, das Rollensystem ist kritisch).
 6. **AGENTS.md** aktualisieren: Tabelle im Abschnitt „Datenbankschema" + neue Dateipfade ergänzen.
 7. **Build/Lint**: `npm run lint`. Hinweis: lokaler `npm run build` kann an Turbopack+FullCalendar scheitern – wenn der Fehler ausschließlich daher rührt, kein Blocker (Vercel-Build greift).
 8. **Commit & Push** auf `main` (`feat:`-Präfix), Vercel deployt automatisch.
-9. **Claudian-Update** im vorgeschriebenen Format ausgeben (Sektion „Manuell zu testen" ist Pflicht).
+9. **AI Brain Update** im Format der Projektwurzel (`AGENTS.md`/`CLAUDE.md`) ausgeben; konkrete manuelle Testschritte unter „Prüfung“ sind Pflicht.
 
 ## Häufige Fehler
 

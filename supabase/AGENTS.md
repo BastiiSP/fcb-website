@@ -111,3 +111,7 @@ Aktivität, deshalb Write statt Read.
 ## Pflege dieses Dateipaars
 
 Direkte aktuelle Nutzeraufträge haben Vorrang. Vor Regeländerungen beide Dateien lesen und Unterschiede inhaltlich zusammenführen; gültige Regeln erhalten. AGENTS.md und CLAUDE.md unmittelbar gemeinsam ändern und danach mit `cmp` auf Bytegleichheit prüfen. Anbieterunterschiede ausdrücklich kennzeichnen und in beiden Dateien führen. Codex lädt AGENTS.md; Claude Code lädt bei diesem Paar CLAUDE.md.
+
+## Abschluss
+
+Für das AI Brain Update gilt das unveränderte Format der Projektwurzel (`../AGENTS.md` bzw. CLAUDE.md); auch bei direktem Einstieg dort nachlesen.
