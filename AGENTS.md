@@ -1,20 +1,92 @@
-# FCB Website – Agent-Kontext (Codex u. a.)
+# FCB Website – Projektanweisungen
 
-> **Single Source of Truth: [`CLAUDE.md`](./CLAUDE.md).**
-> Der gesamte Projektkontext – Tech-Stack, Rollenkonzept, Datenbankschema, Code-Regeln,
-> Dateipfade, Design-Spec, Workflow und das Claudian-Update-Format – wird **ausschließlich**
-> in `CLAUDE.md` gepflegt. Diese Datei verweist nur darauf, damit beide Dokumente nicht
-> auseinanderdriften (frühere Duplizierung führte zu veralteten Angaben).
+Gemeinsame Next.js-Codebasis für FCB und JFG; Live-Auftritte `www.fcbuku.de` und `www.jfg-kunstadt-obermain.de`. Next.js 16 App Router, React 19, TypeScript strict, Tailwind 3.4, Framer Motion 12, FullCalendar 6 und Supabase mit Auth/RLS. Öffentliches Repository: keine personenbezogenen Daten, privaten Dokumentpfade oder Zugangsdaten in Anweisungen und Diffs.
 
-## Für Codex / andere Agenten
+## Einstieg und projektspezifische Werkzeuge
 
-1. **Lies zuerst `CLAUDE.md` vollständig** – sie gilt 1:1 auch hier.
-2. **Skill-Pfad-Hinweis:** Die dort referenzierten Skills (`supabase-tabelle-anlegen`,
-   `fcb-komponente-bauen`) liegen unter `.claude/skills/`. Nutzt dein Agent ein anderes
-   Skill-Verzeichnis, übertrage das Rezept sinngemäß – Inhalt und Workflow bleiben gleich.
-3. **Kritisch (Auszug, Details in `CLAUDE.md`):** Rollensystem nie ohne Rücksprache ändern;
-   `profiles`/`rolle` (nicht `profile`/`rollen`); bei neuen Tabellen GRANT + RLS nicht vergessen;
-   lokaler `npm run build` scheitert an Turbopack+FullCalendar (kein eigener Bug) → mit
-   `npm run lint` + `npx tsc --noEmit` verifizieren; alle UI-Texte/Kommentare auf Deutsch.
+- Vor DB-/Auth-/Rollenarbeiten `supabase/AGENTS.md` bzw. die bytegleiche CLAUDE.md als Schema-/Vertragsreferenz und die betroffenen Migrationen lesen.
+- Neue Tabellen immer mit `.claude/skills/supabase-tabelle-anlegen` bearbeiten; Rezept enthält `handle_updated_at()`, `get_own_rolle()`, GRANTs und RLS.
+- Komponenten immer nach `.claude/skills/fcb-komponente-bauen` und dessen `design-spec.md`; Vorbilder `Header.tsx` und `src/components/ui/` zuerst prüfen.
+- Vor Rollen/RLS-Änderungen Skill `rls-rollenkonzept-check` und Agent `rls-rollen-reviewer` nutzen. UI-/Text-/Routingänderungen mit `multi-tenant-konsistenz-reviewer` prüfen, Tenant-E2E mit `e2e-tenant-test-schreiben`.
+- **Claude Code:** Projekt-Skills und Agents liegen unter `.claude/`. **Codex:** Dieselben Rezepte direkt lesen bzw. verfügbare äquivalente Werkzeuge nutzen; fehlende Agenten/Verbindungen als Prüflücke benennen.
 
-Alle Änderungen am Projektkontext bitte **in `CLAUDE.md`** vornehmen, nicht hier.
+## Tenant-Vertrag
+
+- `src/proxy.ts` setzt `x-tenant`, Root-Layout `data-tenant`. Nicht in `middleware.ts` umbenennen: Next 16 würde es hier ignorieren.
+- Markenwerte ausschließlich in serialisierbarer `src/lib/tenant.ts`; Server nutzt `tenant.server.ts/getTenant()` (dynamische Route ist gewollt), Client `TenantProvider`. Redaktionelle Texte in `vereinstexte.ts`, Rechtstexte in `rechtstexte.ts`.
+- Keine Namen/Logos/Texte der Marke hart codieren. Markenexklusive Routen wie `/sportheim` mit `notFound()` und `generateMetadata()` absichern.
+- `?tenant=jfg`/`?tenant=fcb` setzt Preview-/localhost-Override (`fcb-tenant`); Produktionsdomains ignorieren ihn. Default auf Preview/localhost: FCB.
+
+## Rollen und Datenbank
+
+Rollensystem nur nach Rücksprache ändern:
+- `ausstehend`: nur Profil, wartet auf Freigabe.
+- `mitglied`: Mein Verein und Profil, kein Kalenderzugriff.
+- `trainer`: Platzbuchungen anlegen/eigene verwalten.
+- `vorstand`: Buchungen verwalten, Nutzer freischalten.
+- `admin`: zusätzlich Vorstand/Admin vergeben.
+Vorstand darf nur ausstehend/mitglied/trainer vergeben. Nur Admin vergibt **und entzieht** Vorstand/Admin.
+- DB-Trigger `trg_prevent_role_escalation`, `trg_prevent_self_role_change`, `trg_prevent_fremdprofil_aenderung` und Update-Policy erhalten. Rollenlabels in `src/lib/rollen.ts`.
+- Privilegierte API-Routen prüfen Access-Token und Rolle serverseitig. Vorstand darf fremde Profile nur in `rolle` ändern; `verein` nur Admin.
+- `profiles` (Plural) und `rolle` (Singular/String), niemals `profile` oder `rollen`.
+- DB-Operationen über Supabase MCP; tatsächlichen Zugang prüfen. RLS immer aktiv, auch Server Components brauchen den RLS-Check.
+- Supabase-Calls mit try/catch und verständlichen Fehlern. Migrationen in `supabase/migrations/` versionieren, im beauftragten Umfang per MCP anwenden und live prüfen; Datei allein belegt keine Ausführung.
+- Für neue Tabellen explizite Rechte für `authenticated` (`SELECT, INSERT, UPDATE, DELETE`) und benötigte `service_role`-Rechte prüfen. RLS greift erst nach GRANT; Default-Privileges nicht ungeprüft annehmen.
+- Direkte SQL-Wartung an `profiles` braucht innerhalb derselben autorisierten Transaktion `set local request.jwt.claims = '{"role":"service_role"}';` wegen der Trigger.
+- Mitglieder strikt nach `verein && get_own_verein()` trennen; `trg_mitglieder_verein_guard` erhalten. Trainer-Verzeichnis nur über `trainer_verzeichnis()` mit festen Spalten.
+- Öffentliche Sportheim-Belegung nur über `sportheim_belegte_zeiten()` ohne Personendaten; Preise in `src/lib/sportheim.ts` sind Platzhalter.
+- `keepalive`/`.github/workflows/supabase-keepalive.yml` schreibt alle drei Tage per anon-INSERT; nicht für Fachfunktionen umbauen.
+- `npm run test:e2e:security` erzeugt Wegwerfkonten in der Live-DB: nur bewusst im autorisierten Umfang starten.
+
+## UI, Design und Inhalte
+
+- Keine `any`-Types, explizite Interfaces. UI, Fehlermeldungen und Kommentare Deutsch. Kommentare erklären nicht offensichtlichen Kontext/Warum, RLS, Workarounds und bewusste Entscheidungen.
+- Tailwind v3, keine `@theme`-Directive. Alle Flächen über `fcb.*`-Tokens/CSS-Variablen, Default dunkel mit Footer-Umschalter. Auch Hero/Auth in beiden Themes testen; keine always-dark-Inseln, magic hex oder `gray-*`.
+- `fcb-accent` für markenabhängige Buttons/Links/aktive States/Fokus; `fcb-blue`/`fcb-red` nur feste Team-Trägerfarben über `getTeamAccent()` bzw. danger/error.
+- Headlines `font-oswald` (600–700, gern uppercase), nie `font-display`; Fließtext `font-inter`.
+- Cards `rounded-2xl border border-fcb-border bg-fcb-surface p-6`, Border statt Schatten; Hover nur Border, kein Scale/Lift. Tints `bg-<akzent>/10` und `border-<akzent>/40`.
+- Keine Emojis. Lucide, Brand-/Social-Icons aus `BrandIcons.tsx`; `react-icons` nicht neu verwenden. Framer Motion für Animationen, reduced motion beachten. Smart-Sticky-Nav und ungefähr 1,5-s-Wappen-Ladescreen erhalten.
+- WCAG AA, sichtbarer Fokus und deutsche aria-labels für Icon-Buttons.
+- Meldungen über `ui/Banner.tsx`. Wartet auf Freigabe/Prüfung = warning/gelb. Rollen-Gates über `ui/ZugriffsHinweis.tsx`: ausstehend/unbekannt fail-closed warning „Konto wartet auf Freigabe“, andere unzureichende Rolle info „Rolle nicht vorgesehen“.
+- `UserDropdown` zeigt allen Eingeloggten alle Bereiche, Zielseiten erklären Zugriff. Rollenabhängige Funktionen und Redirects `/kalender` → `/platzbuchung`, `/vorstand` → `/vorstandsbereich` erhalten.
+- News nutzt Instagram statt CMS. ConsentGate erst für echte Client-Einbettungen nutzen; Instagram-next/image-Proxy und serverseitiger BFV-Abruf sind keine solchen Konsumenten.
+- Fertige optimierte Bildassets flach mit sprechenden Namen in `public/`, Originale in `assets-source/<kategorie>/` außerhalb öffentlicher Auslieferung. Vor neuen Dateien ähnliche Namen in `public/` suchen.
+
+## BFV-Spielbetrieb
+
+Öffentliche BFV-Widget-API `https://widget-prod.bfv.de/api/service/widget/v1` verwenden, nicht fussball.de. `BFV_TEAMS` in `src/lib/bfv.ts` pflegt nur stabile `teamPermanentId`; Liga/Staffel/compoundId aus Matches ableiten. Anleitung steht über der Konstante. Cache 1 Stunde (`revalidate=3600`), nicht häufiger pollen. Debug: `/api/spielbetrieb?team=herren-1`, ohne Parameter alle Teams. UI in `src/components/spielbetrieb/`.
+
+## Entwicklung und Fertigstellung
+
+- `npm run dev`, `npm run lint`, `npx tsc --noEmit`, `npm run test:unit`; `npm run test:e2e` braucht laufenden Server/Build.
+- `npm run build` kann lokal an Turbopack/FullCalendar-Auflösung scheitern. Den konkreten Fehler zuordnen, nicht jeden Buildfehler pauschal ausnehmen; lint und TypeScript vor autorisiertem Push prüfen.
+- `.env.local`: `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Preview-Platzhalter im Client erlauben Build ohne produktive Werte.
+- Push auf main löst Vercel-Deployment aus. Nur eigene beauftragte Änderungen gezielt stagen.
+- **Arbeitsweise: Plan-Modus.** Handover-Prompts von Claudian sind grundsätzlich für den Plan-Modus formuliert: Sie beschreiben Ziele und Anforderungen, keine Implementierungsschritte. Den Prompt vollständig lesen, einen strukturierten Plan erstellen (Was, in welcher Reihenfolge, warum so) und auf Bastis Freigabe warten – erst dann Code schreiben. Ausnahme: klar umrissene Micro-Fixes (einzelne CSS-Anpassung, einzeiliger Bug-Fix, Text-Änderung) direkt umsetzen.
+- Nach Aufgaben konkrete vollständige manuelle Browser-Schritte mit Seite, Aktion, erwartetem Ergebnis und Fehlermerkmalen liefern; Sektion nie leer. Der Nutzer testet vor der nächsten Entwicklungsaufgabe.
+
+## Pflege dieses Dateipaars
+
+Direkte aktuelle Nutzeraufträge haben Vorrang. Vor Regeländerungen beide Dateien lesen und Unterschiede inhaltlich zusammenführen; gültige Regeln erhalten. AGENTS.md und CLAUDE.md unmittelbar gemeinsam ändern und danach mit `cmp` auf Bytegleichheit prüfen. Anbieterunterschiede ausdrücklich kennzeichnen und in beiden Dateien führen. Codex lädt AGENTS.md; Claude Code lädt bei diesem Paar CLAUDE.md.
+
+## Abschluss: Claudian-Update
+
+Nach jeder erledigten Implementierungsaufgabe dieses Format mit tatsächlichen Ergebnissen ausgeben; es ersetzt keine unabhängige Prüfung:
+```text
+## Claudian-Update – [Datum]
+
+### Implementiert
+- [Was gebaut / geändert wurde]
+
+### Getestet
+- [Was getestet wurde und Ergebnis]
+
+### Manuell zu testen
+- [Seite → Aktion → Erwartung; Fehlermerkmale]
+
+### Offen / Nächster Block
+- [Was als nächstes kommt]
+
+### Technische Notizen
+- [Wichtige Entscheidungen, neue Pakete, IDs etc.]
+```
