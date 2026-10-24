@@ -38,6 +38,14 @@ export interface TenantNavLink {
   href: string;
 }
 
+export interface TenantTraegerverein {
+  name: string;
+  /** Kurzform unter dem Wappen. */
+  kurz: string;
+  /** Wappen in /public. */
+  logoSrc: string;
+}
+
 export interface TenantConfig {
   id: TenantId;
   /** Voller Vereinsname, z. B. für Header und Metadaten. */
@@ -53,12 +61,27 @@ export interface TenantConfig {
   kurznameDativ: string;
   /** Rechtlich vollständige Schreibweise (Footer). */
   vereinsname: string;
+  /**
+   * Artikel + Name für Satzbausteine in Meta-Beschreibungen – aus demselben
+   * Grund wie `kurznameDativ` pro Marke gepflegt: "des 1. FC …", aber
+   * "der Junioren-Förder-Gemeinschaft …" bzw. "vom 1. FC …", aber "von der JFG …".
+   */
+  vereinsnameGenitiv: string;
+  nameVonDativ: string;
+  /**
+   * Trägervereine, falls die Marke eine Fördergemeinschaft ist (JFG) – sonst
+   * leer. Quelle für die Wappenreihe im JFG-Hero und die `member`-Angabe im
+   * JSON-LD, damit die Namen nur an einer Stelle stehen.
+   */
+  traegervereine: TenantTraegerverein[];
   /** Einzeiler unter dem Namen, z. B. im Vereins-Switcher. */
   untertitel: string;
   /** Pfad zum Wappen in /public. */
   logoSrc: string;
   /** Alt-Text des Wappens (Screenreader). */
   logoAlt: string;
+  /** Rasterwappen für Suchergebnisse und strukturierte Daten (mindestens 112 px). */
+  logoPngSrc: string;
   /**
    * Browsertab-Icon (ICO mit 32–256 px) und iOS-Homescreen-Icon (180 px), beide
    * in /public. Müssen pro Marke gesetzt sein: Das Root-Layout deklariert sie
@@ -93,6 +116,12 @@ export interface TenantConfig {
   /** `<title>`-Suffix und Default-Metadaten. */
   metaTitle: string;
   metaDescription: string;
+  /** Startseitentitel, bekannte Namensformen und belegtes Gründungsjahr für SEO. */
+  startseitenTitel: string;
+  alternativeNamen: string[];
+  gruendungsjahr: string;
+  /** Belegte öffentliche Profile für sameAs; keine fremden Domains ergänzen. */
+  profilUrls: string[];
   /** Öffentlicher Instagram-Kanal (Handle inkl. @ und URL). */
   instagramHandle: string;
   instagramUrl: string;
@@ -114,9 +143,13 @@ const FCB: TenantConfig = {
   kurzname: "FCB",
   kurznameDativ: "beim FCB",
   vereinsname: "1. FC 1911 Burgkunstadt e.V.",
+  vereinsnameGenitiv: "des 1. FC 1911 Burgkunstadt e.V.",
+  nameVonDativ: "vom 1. FC 1911 Burgkunstadt",
+  traegervereine: [],
   untertitel: "Hauptverein · seit 1911",
   logoSrc: "/logo.svg",
   logoAlt: "Vereinslogo 1. FC 1911 Burgkunstadt",
+  logoPngSrc: "/logo.png",
   faviconSrc: "/favicon.ico",
   appleTouchIconSrc: "/apple-touch-icon.png",
   domain: "www.fcbuku.de",
@@ -136,7 +169,11 @@ const FCB: TenantConfig = {
   authWords: ["Tradition", "Heimat", "Mannschaft", "1911"],
   metaTitle: "1. FC 1911 Burgkunstadt",
   metaDescription:
-    "Die offizielle Vereinswebsite der Schuhstädter – mit aktuellen Spielberichten, Feierlichkeiten, Platzbuchung und mehr.",
+    "Offizielle Website des 1. FC 1911 Burgkunstadt (FC Burgkunstadt, die „Schuhstädter“): Fußball in Burgkunstadt seit 1911 – Herren, Jugend, Spielbetrieb, News und Sportheim.",
+  startseitenTitel: "1. FC 1911 Burgkunstadt – Fußballverein der Schuhstädter",
+  alternativeNamen: ["FC Burgkunstadt", "1. FC Burgkunstadt", "FCB", "Schuhstädter"],
+  gruendungsjahr: "1911",
+  profilUrls: ["https://www.instagram.com/schuhstaedter1911", "https://www.facebook.com/fc1911"],
   instagramHandle: "@schuhstaedter1911",
   instagramUrl: "https://www.instagram.com/schuhstaedter1911",
   beholdFeedEnvVar: "BEHOLD_FEED_URL",
@@ -152,9 +189,20 @@ const JFG: TenantConfig = {
   // "JFG Kunstadt-Obermain" (siehe vereinstexte.ts), volle Schreibweise nur
   // hier für Footer/Impressum-Zwecke.
   vereinsname: "Junioren-Förder-Gemeinschaft Kunstadt-Obermain e.V.",
+  vereinsnameGenitiv: "der Junioren-Förder-Gemeinschaft Kunstadt-Obermain e.V.",
+  nameVonDativ: "von der JFG Kunstadt-Obermain",
+  // Wappen von SG Roth-Main und 1. FC Redwitz per KI-Bildgenerierung aus
+  // niedrig aufgelösten BFV-Vorlagen hochskaliert (1:1-Vorgabe), von Basti
+  // UND Claudian gegen die Originale gegengeprüft, dann per rembg freigestellt.
+  traegervereine: [
+    { name: "1. FC 1911 Burgkunstadt", kurz: "FCB", logoSrc: "/logo.svg" },
+    { name: "SG Roth-Main Mainroth", kurz: "Roth-Main", logoSrc: "/logo-sg-roth-main.png" },
+    { name: "1. FC 1916 Redwitz a. d. Rodach", kurz: "Redwitz", logoSrc: "/logo-fc-redwitz.png" },
+  ],
   untertitel: "Jugendförderung · A- bis D-Junioren",
   logoSrc: "/logo-jfg.png",
   logoAlt: "Wappen JFG Kunstadt-Obermain",
+  logoPngSrc: "/logo-jfg.png",
   // Aus logo-jfg.png generiert (gleiche Größenstaffel wie das FCB-Favicon).
   faviconSrc: "/favicon-jfg.ico",
   appleTouchIconSrc: "/apple-touch-icon-jfg.png",
@@ -176,7 +224,11 @@ const JFG: TenantConfig = {
   authWords: ["Förderung", "Perspektive", "Mannschaft", "Zukunft"],
   metaTitle: "JFG Kunstadt-Obermain",
   metaDescription:
-    "Die Jugendfördergemeinschaft Kunstadt-Obermain: leistungsorientierte Nachwuchsförderung der A- bis D-Junioren aus drei Trägervereinen.",
+    "Offizielle Website der JFG Kunstadt-Obermain (Junioren-Förder-Gemeinschaft Kunstadt-Obermain e.V.): Nachwuchsfußball der A- bis D-Junioren, getragen vom 1. FC 1911 Burgkunstadt, der SG Roth-Main Mainroth und dem 1. FC 1916 Redwitz.",
+  startseitenTitel: "JFG Kunstadt-Obermain – Jugendfußball am Obermain",
+  alternativeNamen: ["JFG Kunstadt Obermain", "Junioren-Förder-Gemeinschaft Kunstadt-Obermain"],
+  gruendungsjahr: "2004",
+  profilUrls: ["https://www.instagram.com/jfgkunstadtobermain", "https://www.anpfiff.info/sites/vereine/start.aspx?SK=7&Ver=1014"],
   // Echter JFG-Instagram-Kanal (2026-07-29 eingerichtet, siehe Behold-Feed).
   instagramHandle: "@jfgkunstadtobermain",
   instagramUrl: "https://www.instagram.com/jfgkunstadtobermain",

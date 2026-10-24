@@ -12,8 +12,9 @@ import { RECHTSTEXTE } from "@/lib/rechtstexte";
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantConfigServer();
   return {
-    title: `Impressum – ${tenant.name}`,
-    description: `Impressum und Anbieterkennzeichnung des ${tenant.vereinsname}.`,
+    title: "Impressum",
+    alternates: { canonical: "/impressum" },
+    description: `Impressum und Anbieterkennzeichnung ${tenant.vereinsnameGenitiv}.`,
   };
 }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type InstaPost, formatPostDate, splitCaption } from "@/lib/beholdFeed";
+import { instagramBildAlt } from "@/lib/instagramAlt";
 import { spotlightMove, SpotlightOverlays } from "./Spotlight";
 import InstagramOverlay from "./InstagramOverlay";
 
@@ -98,7 +99,7 @@ export default function InstagramCarousel({ posts }: { posts: InstaPost[] }) {
               <div className="relative aspect-[4/5] w-full overflow-hidden">
                 <Image
                   src={post.imageUrl}
-                  alt={post.caption.slice(0, 80) || "Instagram-Beitrag"}
+                  alt={instagramBildAlt(post.timestamp)}
                   fill
                   sizes="(max-width: 768px) 256px, 320px"
                   className="object-cover"

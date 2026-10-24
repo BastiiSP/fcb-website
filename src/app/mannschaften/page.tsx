@@ -65,7 +65,8 @@ function TeamGrid({ teams, className = "" }: { teams: Team[]; className?: string
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantConfigServer();
   return {
-    title: `Mannschaften – ${tenant.metaTitle}`,
+    title: "Mannschaften",
+    alternates: { canonical: "/mannschaften" },
     description: TEXTE[tenant.id].metaDescription,
   };
 }

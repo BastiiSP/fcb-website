@@ -10,8 +10,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const config = await getTenantConfigServer();
 
   return {
-    title: `News – ${config.name}`,
-    description: `Neuigkeiten vom ${config.name}: Spielberichte, Termine und Bilder direkt aus unserem Instagram-Kanal.`,
+    title: "News",
+    alternates: { canonical: "/news" },
+    description: `Neuigkeiten ${config.nameVonDativ}: Spielberichte, Termine und Bilder direkt aus unserem Instagram-Kanal.`,
   };
 }
 

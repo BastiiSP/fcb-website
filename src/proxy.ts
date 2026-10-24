@@ -24,6 +24,7 @@
 // immer FCB, unabhängig davon, wie der Branch heißt.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { istNoindexPfad } from "@/lib/seo";
 import {
   TENANT_COOKIE,
   TENANT_HEADER,
@@ -120,6 +121,10 @@ export function proxy(req: NextRequest) {
 
   const res = NextResponse.next({ request: { headers } });
   res.headers.set(CSP_HEADER, contentSecurityPolicy);
+  // robots.txt ersetzt keinen Zugriffsschutz; dafür bleiben RLS und Rollen-Gates zuständig.
+  if (istNoindexPfad(req.nextUrl.pathname)) {
+    res.headers.set("X-Robots-Tag", "noindex");
+  }
 
   // Override persistieren, damit Folgeklicks im gewählten Auftritt bleiben.
   if (overrideErlaubt && istTenantId(override)) {
