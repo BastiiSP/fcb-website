@@ -75,7 +75,11 @@ export default function RegistrierungsSeite() {
           // Telefonnummer entfällt bewusst – Trigger schreibt dann NULL.
           // Der Tenant befüllt profiles.verein bei der Registrierung vor; nur
           // Admins dürfen diese Zuordnung später ändern.
-          data: { vorname, nachname, verein: tenant.id },
+          // passwort_login: Nur Konten mit diesem Marker bekommen in der
+          // Reset-Mail einen Link (supabase/templates/reset-password.html) –
+          // reine Google-Konten sollen kein Website-Passwort erhalten. Steuert
+          // ausschließlich die Mail, keine Rechte.
+          data: { vorname, nachname, verein: tenant.id, passwort_login: true },
         },
       });
       if (error) {

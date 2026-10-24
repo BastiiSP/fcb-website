@@ -26,6 +26,19 @@ export default function AuthCallbackPage() {
     const weiterleiten = async () => {
       const { userId, rolle } = await checkSession(supabase);
       if (!userId) return; // noch keine Session – auf Auth-Event warten
+
+      // Mailmarke für Google-Konten: signInWithOAuth kann keine eigenen Daten
+      // mitgeben, deshalb hier aus der aufrufenden Domain nachziehen – nur wenn
+      // noch keine gesetzt ist. Steuert ausschließlich die Systemmails
+      // (supabase/templates/), keine Rechte; profiles.verein bleibt Admin-Sache.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session && !session.user.user_metadata?.verein) {
+        const { error } = await supabase.auth.updateUser({ data: { verein: tenant.id } });
+        if (error) console.error("Mailmarke konnte nicht gesetzt werden:", error.message);
+      }
+
       router.replace(rolle === "ausstehend" ? "/profil" : "/");
     };
 
@@ -40,7 +53,7 @@ export default function AuthCallbackPage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, [router, tenant.id]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-fcb-bg">

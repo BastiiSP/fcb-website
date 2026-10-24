@@ -4,7 +4,7 @@ import { istNoindexPfad, oeffentlichePfade, basisUrl } from "../src/lib/seo";
 import { erstelleStartseitenJsonLd } from "../src/lib/strukturierteDaten";
 
 test("interne Pfade werden exakt oder als Unterpfad erkannt", () => {
-  for (const pfad of ["/login", "/auth/callback", "/vorstandsbereich", "/api/spielbetrieb"]) {
+  for (const pfad of ["/login", "/passwort-vergessen", "/passwort-neu", "/auth/callback", "/vorstandsbereich", "/api/spielbetrieb"]) {
     expect(istNoindexPfad(pfad)).toBe(true);
   }
   for (const pfad of ["/", "/verein", "/vereinXYZ", "/vorstandsbereichXYZ", "/apiary"]) {

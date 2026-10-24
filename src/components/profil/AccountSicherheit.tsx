@@ -86,7 +86,12 @@ export default function AccountSicherheit({ aktuelleEmail }: AccountSicherheitPr
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({ email: neueEmail.trim() });
+    // Rücksprung auf die aufrufende Domain; ohne Angabe landete der Link auf der
+    // Site URL (FCB-Domain), auch wenn die Änderung auf der JFG-Domain startete.
+    const { error } = await supabase.auth.updateUser(
+      { email: neueEmail.trim() },
+      { emailRedirectTo: `${window.location.origin}/confirm-email` },
+    );
 
     if (error) {
       setEmailFehler("Fehler beim Ändern der E-Mail: " + error.message);

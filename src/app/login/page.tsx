@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabaseClient";
 import { signInWithGoogle } from "@/lib/auth/signInWithGoogle";
 import PitchAuthShell from "@/components/auth/PitchAuthShell";
@@ -80,6 +81,14 @@ export default function LoginPage() {
           onChange={setPasswort}
           autoComplete="current-password"
         />
+        <div className="-mt-2 text-right">
+          <Link
+            href="/passwort-vergessen"
+            className="font-inter text-sm font-medium text-fcb-accent underline-offset-2 transition-colors hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-fcb-accent"
+          >
+            Passwort vergessen?
+          </Link>
+        </div>
         <AuthErrorBanner message={fehler} />
         <AuthSubmitButton>Einloggen</AuthSubmitButton>
         <AuthSwitchPrompt frage="Noch kein Konto?" aktion="Jetzt registrieren" href="/registrieren" />

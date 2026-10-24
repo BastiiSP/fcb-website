@@ -23,7 +23,7 @@ export function oeffentlichePfade(id: TenantId): string[] {
  * selbst bleibt bei RLS und den Rollen-Gates.
  */
 export const NOINDEX_PFADE = [
-  "/login", "/registrieren", "/confirm-email", "/auth", "/profil",
+  "/login", "/registrieren", "/confirm-email", "/passwort-vergessen", "/passwort-neu", "/auth", "/profil",
   "/mein-verein", "/platzbuchung", "/meine-buchungen", "/mitglieder",
   "/vorstandsbereich", "/kalender", "/vorstand", "/api",
 ] as const;

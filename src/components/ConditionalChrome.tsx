@@ -8,7 +8,7 @@ import CookieBanner from "@/components/consent/CookieBanner";
 
 // Auth-Seiten sind immersive Vollbild-Erlebnisse (Pitch-Look): kein globaler
 // Header/Footer, kein main-Padding. Consent bleibt aktiv (DSGVO gilt überall).
-const AUTH_ROUTES = ["/login", "/registrieren", "/confirm-email", "/auth/callback"];
+const AUTH_ROUTES = ["/login", "/registrieren", "/confirm-email", "/auth/callback", "/passwort-vergessen", "/passwort-neu"];
 
 export default function ConditionalChrome({
   children,

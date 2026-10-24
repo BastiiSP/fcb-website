@@ -25,6 +25,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { istNoindexPfad } from "@/lib/seo";
+import { mailLinkZielseite } from "@/lib/auth/emailLink";
 import {
   TENANT_COOKIE,
   TENANT_HEADER,
@@ -92,6 +93,15 @@ function erstelleContentSecurityPolicy(nonce: string): string {
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 Tage
 
 export function proxy(req: NextRequest) {
+  // Mail-Link ohne Pfad (Site-URL-Rückfall von Supabase) auf die Zielseite
+  // umleiten; Query inkl. token_hash und ?tenant bleibt erhalten.
+  const mailLinkZiel = mailLinkZielseite(req.nextUrl.pathname, req.nextUrl.search);
+  if (mailLinkZiel) {
+    const ziel = req.nextUrl.clone();
+    ziel.pathname = mailLinkZiel;
+    return NextResponse.redirect(ziel);
+  }
+
   // Host-Header statt nextUrl.hostname: auf Vercel trägt nur der Header die
   // tatsächlich aufgerufene Domain.
   const host = req.headers.get("host") ?? req.nextUrl.hostname;
