@@ -22,7 +22,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantConfigServer();
   const texte = VEREINS_TEXTE[tenant.id];
   return {
-    title: `${texte.metaTitel} – ${tenant.name}`,
+    title: texte.metaTitel,
+    alternates: { canonical: "/verein" },
     description: texte.metaBeschreibung,
   };
 }

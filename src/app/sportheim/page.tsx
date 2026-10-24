@@ -23,11 +23,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenant();
 
   if (tenant === "jfg") {
-    return { title: "Seite nicht gefunden" };
+    return { title: "Seite nicht gefunden", robots: { index: false } };
   }
 
   return {
-    title: "Sportheim mieten – 1. FC 1911 Burgkunstadt",
+    title: "Sportheim mieten",
+    alternates: { canonical: "/sportheim" },
     description:
       "Das Sportheim des 1. FC 1911 Burgkunstadt für private Feiern und Veranstaltungen unverbindlich anfragen – mit Belegungskalender und Preisen.",
   };

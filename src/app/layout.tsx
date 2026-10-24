@@ -10,6 +10,7 @@ import { Analytics } from "@vercel/analytics/react";
 import ConditionalChrome from "@/components/ConditionalChrome";
 import { TenantProvider } from "@/components/tenant/TenantProvider";
 import { getTenantConfigServer } from "@/lib/tenant.server";
+import { basisUrl } from "@/lib/seo";
 
 // Marken-Schriften (Oswald = Headlines, Inter = Body) als CSS-Variablen.
 // Werden in modernen Komponenten via font-oswald / font-inter genutzt.
@@ -29,8 +30,15 @@ const inter = Inter({
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantConfigServer();
   return {
-    title: tenant.metaTitle,
+    metadataBase: new URL(basisUrl(tenant.id)),
+    title: { default: tenant.metaTitle, template: `%s | ${tenant.name}` },
     description: tenant.metaDescription,
+    openGraph: {
+      siteName: tenant.name,
+      locale: "de_DE",
+      type: "website",
+      images: [{ url: tenant.logoPngSrc, alt: tenant.logoAlt }],
+    },
     // Icons pro Marke: vorher stand hier fest "/favicon.ico" (FCB-Wappen),
     // wodurch der JFG-Browsertab das falsche Wappen zeigte. `shortcut` ist
     // bewusst mit gesetzt – ältere Browser lesen nur rel="shortcut icon" und

@@ -10,8 +10,7 @@ import { useTenant } from "@/components/tenant/TenantProvider";
 /**
  * „Vereins-News"-Sektion der Startseite: das finale Instagram-Carousel.
  *
- * Die Startseite (page.tsx) ist eine Client-Komponente, kann den Feed also nicht
- * serverseitig laden. Wir holen die Posts daher client-seitig vom gemeinsamen
+ * Der interaktive Startseiten-Client lädt den Feed weiterhin clientseitig vom gemeinsamen
  * Endpoint /api/instagram – der ist serverseitig 1 h gecacht und schont so das
  * Behold-Free-Tier-Kontingent. Kurzer Ladezustand, dann das Carousel.
  */
@@ -21,11 +20,11 @@ export default function InstagramSection() {
   const [posts, setPosts] = useState<InstaPost[] | null>(null);
 
   // Der FCB behält seine bisherige Betextung; die JFG spricht als eigener
-  // Auftritt gezielt ihre Jugendfördergemeinschaft an.
+  // Auftritt gezielt die JFG Kunstadt-Obermain an.
   const eyebrow =
     config.id === "fcb"
       ? "Aus dem Vereinsleben"
-      : "Aus der Jugendfördergemeinschaft";
+      : `Aus der ${config.name}`;
   const title = config.id === "fcb" ? "Vereins-News" : "JFG-News";
 
   useEffect(() => {

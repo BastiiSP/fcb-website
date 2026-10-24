@@ -9,8 +9,9 @@ import { RECHTSTEXTE } from "@/lib/rechtstexte";
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantConfigServer();
   return {
-    title: `Datenschutzerklärung – ${tenant.name}`,
-    description: `Informationen zur Verarbeitung personenbezogener Daten in der Vereins-WebApp des ${tenant.vereinsname}.`,
+    title: "Datenschutzerklärung",
+    alternates: { canonical: "/datenschutz" },
+    description: `Informationen zur Verarbeitung personenbezogener Daten in der Vereins-WebApp ${tenant.vereinsnameGenitiv}`,
   };
 }
 

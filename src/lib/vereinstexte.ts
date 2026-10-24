@@ -18,6 +18,17 @@ import { CalendarDays, Handshake, MapPin, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { TenantId } from "@/lib/tenant";
 
+export const STARTSEITEN_INTRO: Record<TenantId, { heading: string; text: string }> = {
+  fcb: {
+    heading: "Fußball in Burgkunstadt",
+    text: "Der 1. FC 1911 Burgkunstadt e.V. – kurz FC Burgkunstadt oder FCB, die „Schuhstädter“ – ist der Fußballverein in Burgkunstadt. Seit 1911 spielen bei uns zwei Herrenmannschaften sowie die E-, F- und G-Junioren auf Haupt- und Nebenplatz am Alten Postweg. Die A- bis D-Junioren spielen in der eigenständigen JFG Kunstadt-Obermain.",
+  },
+  jfg: {
+    heading: "Jugendfußball am Obermain",
+    text: "Die JFG Kunstadt-Obermain – eingetragen als Junioren-Förder-Gemeinschaft Kunstadt-Obermain e.V. – ist die gemeinsame Nachwuchsförderung von drei Vereinen: dem 1. FC 1911 Burgkunstadt, der SG Roth-Main Mainroth und dem 1. FC 1916 Redwitz a. d. Rodach. Seit 2004 spielen bei uns die A-, B-, C- und D-Junioren leistungsorientiert zusammen.",
+  },
+};
+
 /** Kachel im Abschnitt „Zahlen & Fakten". */
 export interface VereinsFaktum {
   icon: LucideIcon;
@@ -128,11 +139,11 @@ const VEREIN_JFG: VereinsSeitenTexte = {
   untertitel: "JFG Kunstadt-Obermain, Leistungsjugend der A- bis D-Junioren.",
   metaTitel: "Der Verein",
   metaBeschreibung:
-    "Die Jugendfördergemeinschaft Kunstadt-Obermain: Trägervereine, Struktur und leistungsorientierte Nachwuchsförderung der A- bis D-Junioren.",
+    "Die JFG Kunstadt-Obermain (Junioren-Förder-Gemeinschaft Kunstadt-Obermain e.V.): Trägervereine, Struktur und leistungsorientierte Nachwuchsförderung der A- bis D-Junioren.",
   werWirSind: {
     heading: "Wer wir sind",
     absaetze: [
-      "Die JFG Kunstadt-Obermain ist die gemeinsame Jugendfördergemeinschaft von drei Vereinen: dem 1. FC 1911 Burgkunstadt, der SG Roth-Main Mainroth und dem 1. FC 1916 Redwitz a. d. Rodach. Bei uns spielen die A-, B-, C- und D-Junioren zusammen – leistungsorientiert, damit jeder Jahrgang auf dem Niveau spielt, das zu ihm passt.",
+      "Die JFG Kunstadt-Obermain ist die gemeinsame Junioren-Förder-Gemeinschaft von drei Vereinen: dem 1. FC 1911 Burgkunstadt, der SG Roth-Main Mainroth und dem 1. FC 1916 Redwitz a. d. Rodach. Bei uns spielen die A-, B-, C- und D-Junioren zusammen – leistungsorientiert, damit jeder Jahrgang auf dem Niveau spielt, das zu ihm passt.",
       "Der Anspruch dahinter: eine Jugend aufbauen, die es mit den Leistungszentren der großen Vereine aufnehmen kann. Trotzdem bleibt bei uns Platz für jeden, der einfach kicken will – Leistungssport und Spaß am Ball schließen sich bei uns nicht aus.",
     ],
   },
@@ -171,7 +182,7 @@ const VEREIN_JFG: VereinsSeitenTexte = {
   ],
   ansprechpartner: {
     heading: "Struktur & Ansprechpartner",
-    text: "Die Jugendleitung der JFG liegt bei André Petraschek (Organisation) und Marko Linß (Sport). Bei Fragen rund um die JFG meldest du dich am besten direkt bei den beiden oder über die Geschäftsstelle des 1. FC 1911 Burgkunstadt.",
+    text: "Die Jugendleitung der JFG liegt bei André Petratschek (Organisation) und Marko Linß (Sport). Bei Fragen rund um die JFG meldest du dich am besten direkt bei den beiden oder über die Geschäftsstelle des 1. FC 1911 Burgkunstadt.",
   },
   cta: {
     heading: "Lust mitzumachen?",

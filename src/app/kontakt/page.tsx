@@ -22,7 +22,8 @@ import { RECHTSTEXTE } from "@/lib/rechtstexte";
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantConfigServer();
   return {
-    title: `Kontakt – ${tenant.name}`,
+    title: "Kontakt",
+    alternates: { canonical: "/kontakt" },
     description: KONTAKT_TEXTE[tenant.id].metaBeschreibung,
   };
 }

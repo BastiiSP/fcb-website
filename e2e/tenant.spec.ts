@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { tenantAusHostname, istProduktionsHost } from "../src/lib/tenant";
+import { basisUrl } from "../src/lib/seo";
 
 // ──────────────────────────────────────────────
 // Multi-Tenant-Smoke: derselbe Code, zwei Auftritte (FCB + JFG)
@@ -17,6 +18,40 @@ const CONSENT_VALUE = JSON.stringify({ notwendig: true, externeInhalte: false })
 // RGB-Kanäle der Marken-Akzente aus globals.css (--color-accent)
 const AKZENT_FCB = "29 95 173"; // #1d5fad
 const AKZENT_JFG = "204 31 31"; // #cc1f1f
+
+test.describe("SEO je Marke", () => {
+  for (const id of ["fcb", "jfg"] as const) {
+    test(`${id.toUpperCase()} liefert eigene robots, Sitemap, Canonical und JSON-LD`, async ({ page }) => {
+      await seedConsent(page);
+      await page.goto(`/?tenant=${id}`);
+      const basis = basisUrl(id);
+      const fremdeBasis = basisUrl(id === "fcb" ? "jfg" : "fcb");
+
+      const jsonLdText = await page.locator('script[type="application/ld+json"]').textContent();
+      expect(jsonLdText).not.toBeNull();
+      const daten = JSON.parse(jsonLdText ?? "{}") as { "@graph": Array<{ url: string }> };
+      expect(daten["@graph"][0].url).toBe(`${basis}/`);
+
+      const robots = await page.request.get("/robots.txt");
+      expect(robots.ok()).toBe(true);
+      expect(await robots.text()).toContain(`Sitemap: ${basis}/sitemap.xml`);
+
+      const sitemap = await page.request.get("/sitemap.xml");
+      expect(sitemap.ok()).toBe(true);
+      const xml = await sitemap.text();
+      expect(xml).toContain(`${basis}/verein`);
+      expect(xml).not.toContain(fremdeBasis);
+      if (id === "fcb") expect(xml).toContain(`${basis}/sportheim`);
+      else expect(xml).not.toContain("/sportheim");
+
+      const login = await page.request.get("/login");
+      expect(login.headers()["x-robots-tag"]).toBe("noindex");
+      const verein = await page.goto("/verein");
+      expect(verein?.headers()["x-robots-tag"]).toBeUndefined();
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${basis}/verein`);
+    });
+  }
+});
 
 /** Consent vorab setzen, damit der Cookie-Banner keine Klicks abfängt. */
 async function seedConsent(page: Page) {

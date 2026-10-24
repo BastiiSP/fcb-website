@@ -7,7 +7,7 @@ import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import Card from "@/components/ui/Card";
 import { spotlightMove, SpotlightOverlays } from "@/components/instagram/Spotlight";
 import { InstagramIcon } from "@/components/icons/BrandIcons";
-import { useTenant } from "@/components/tenant/TenantProvider";
+import { instagramBildAlt } from "@/lib/instagramAlt";
 import {
   formatPostDate,
   splitCaption,
@@ -26,9 +26,6 @@ interface NewsPostCardProps {
 }
 
 export default function NewsPostCard({ post }: NewsPostCardProps) {
-  // Fallback-Alt-Text nennt die Marke des Auftritts – auf der JFG-Domain stand
-  // hier sonst der FCB-Name (nur für Screenreader sichtbar, aber falsch).
-  const tenant = useTenant();
   const [bildIndex, setBildIndex] = useState(0);
   const [ausgeklappt, setAusgeklappt] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -85,7 +82,7 @@ export default function NewsPostCard({ post }: NewsPostCardProps) {
               >
                 <Image
                   src={bilder[bildIndex].url}
-                  alt={heading || `Instagram-Beitrag des ${tenant.name}`}
+                  alt={instagramBildAlt(post.timestamp, bildIndex + 1, bilder.length)}
                   fill
                   sizes="(max-width: 768px) 100vw, 672px"
                   className="object-cover"
