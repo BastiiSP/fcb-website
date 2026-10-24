@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Impressum",
     alternates: { canonical: "/impressum" },
-    description: `Impressum und Anbieterkennzeichnung ${tenant.vereinsnameGenitiv}.`,
+    description: `Impressum und Anbieterkennzeichnung ${tenant.vereinsnameGenitiv}`,
   };
 }
 

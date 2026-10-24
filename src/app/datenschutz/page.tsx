@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Datenschutzerklärung",
     alternates: { canonical: "/datenschutz" },
-    description: `Informationen zur Verarbeitung personenbezogener Daten in der Vereins-WebApp ${tenant.vereinsnameGenitiv}.`,
+    description: `Informationen zur Verarbeitung personenbezogener Daten in der Vereins-WebApp ${tenant.vereinsnameGenitiv}`,
   };
 }
 

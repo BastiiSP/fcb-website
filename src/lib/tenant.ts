@@ -65,6 +65,7 @@ export interface TenantConfig {
    * Artikel + Name für Satzbausteine in Meta-Beschreibungen – aus demselben
    * Grund wie `kurznameDativ` pro Marke gepflegt: "des 1. FC …", aber
    * "der Junioren-Förder-Gemeinschaft …" bzw. "vom 1. FC …", aber "von der JFG …".
+   * Der Genitiv endet auf "e.V." – Satzbausteine dahinter keinen Punkt anhängen.
    */
   vereinsnameGenitiv: string;
   nameVonDativ: string;
