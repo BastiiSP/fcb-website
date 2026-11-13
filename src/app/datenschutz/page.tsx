@@ -305,8 +305,8 @@ export default async function DatenschutzPage() {
         <p>
           Die Datenverarbeitung dient der Organisation des Vereins- und
           Spielbetriebs: Verwaltung von Nutzerkonten und Rollen, Buchung und
-          Belegung der Plätze, der Mitgliederverwaltung sowie der Bearbeitung von
-          Sportheim-Anfragen.
+          Belegung der Plätze und der Mitgliederverwaltung
+          {tenant.id === "fcb" && " sowie der Bearbeitung von Sportheim-Anfragen"}.
         </p>
       </RechtstextSektion>
 
@@ -314,8 +314,9 @@ export default async function DatenschutzPage() {
         <p>
           Die Verarbeitung erfolgt je nach Funktion auf Grundlage von Art. 6
           Abs. 1 lit. b DSGVO (Erfüllung des Mitgliedschafts- bzw.
-          Nutzungsverhältnisses, vorvertragliche Maßnahmen wie die
-          Sportheim-Anfrage), Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
+          Nutzungsverhältnisses
+          {tenant.id === "fcb" && ", vorvertragliche Maßnahmen wie die Sportheim-Anfrage"}),
+          Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
           am Vereinsbetrieb, an der IT-Sicherheit und an der
           Website-Optimierung) sowie – wo eine Einwilligung erforderlich ist
           (siehe „Cookies und Einwilligung“, „Anmeldung mit Google“ und
@@ -380,9 +381,8 @@ export default async function DatenschutzPage() {
           Wir speichern personenbezogene Daten nur so lange, wie es für die
           genannten Zwecke erforderlich ist oder gesetzliche Aufbewahrungsfristen
           es vorschreiben. Nutzerkonto- und Mitgliederdaten werden auf Wunsch oder
-          nach Wegfall des Zwecks gelöscht. Sportheim-Anfragen werden gelöscht,
-          sobald sie abschließend bearbeitet sind und keine Aufbewahrungspflicht
-          entgegensteht.
+          nach Wegfall des Zwecks gelöscht.
+          {tenant.id === "fcb" && " Sportheim-Anfragen werden gelöscht, sobald sie abschließend bearbeitet sind und keine Aufbewahrungspflicht entgegensteht."}
         </p>
       </RechtstextSektion>
 
