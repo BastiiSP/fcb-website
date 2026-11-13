@@ -16,7 +16,7 @@ eine Migrationshistorie ist keine Datensicherung.
 | Öffentliche HTTP-Prüfung | Beide Domains liefern HTTP 200 und den richtigen Tenant | Erfolgreicher PR-#8-Lauf `43398257499`, Job `131794400503` |
 | GitHub-Fehlermail | Allgemeine und gezielte Verfügbarkeits-Alarmmail an Basti zugestellt | Schema-Replay am 13.11.2026 um 09:02:09 UTC, Commit `964787d`; Verfügbarkeits-Alarmprobe um 09:07:12 UTC, Commit `3e8d9dc`, Lauf `43398573784` |
 | Laufzeit-Alarmierung | Kein zugestellter Laufzeitfehleralarm nachgewiesen | Observability Plus laut API nicht aktiviert; Integrationsliste mangels Berechtigung nicht einsehbar |
-| Anwendung | Analytics und Speed Insights eingebunden, kein eigenständiges Error-Monitoring eingerichtet | Repository-Prüfung |
+| Sentry | EU-Projekt eingerichtet, kostenloser Developer-Grundplan ohne Zahlungsmittel | Datenschutz-Einstellungen gespeichert und erneut gelesen; SDK-Einführung separat in Arbeit, Ereignis und Alarmmail noch nicht belegt |
 
 Supabase empfiehlt im Free-Tarif eigene Exporte außerhalb des Projekts. Eine
 Datenbanksicherung umfasst nur Storage-Metadaten, nicht die gespeicherten
@@ -52,124 +52,204 @@ den Standardbranch und einem belegten geplanten Actions-Lauf als aktiv.
 GitHub bietet für Zeitpläne keine
 garantierte Startzeit; Läufe können sich verzögern oder entfallen. Bei öffentlichen
 Repositories werden Zeitpläne nach 60 Tagen ohne Repository-Aktivität deaktiviert.
-Für verbindliche Überwachung rund um die Uhr ist deshalb ein externer Monitor
-vorzuziehen. Der E-Mail-Kanal ist separat zu prüfen.
+Bis 13.11.2026 um 10:54 UTC war noch kein geplanter Lauf sichtbar. Der
+Zeitplanbetrieb bleibt deshalb offen. Der E-Mail-Kanal für kontrollierte
+PR-Fehler ist belegt, das Routing geplanter Fehler bleibt separat zu prüfen.
 
-## Backup-Vertrag vor Aktivierung
+## Kostenfreiheit und vorbereitete Sicherung
 
-Folgende Angaben fehlen noch:
+Verbindliche Vorgabe: keine privaten Kosten. Keine Zahlungsmittel, bezahlten
+Tarife, Mehrverbrauchsabrechnung oder kostenpflichtigen Runner aktivieren.
 
-1. Anbieter und Zielordner des vorhandenen Cloud-Speichers, Zugriff über eine
-   verbundene Anwendung oder einen dafür angelegten eingeschränkten Zugang.
-2. Sicherer Zugang für einen Datenbankexport und den separaten Storage-Download.
-   Zugangsdaten ausschließlich als Secret oder über die Provider-Anmeldung
-   hinterlegen, niemals im Chat, Repository oder Ausführungsprotokoll.
-3. Verantwortliche Person für Entschlüsselung und ein davon getrennt verwahrter
-   Wiederherstellungsschlüssel.
-4. Isolierte Wiederherstellungsumgebung, etwa ein lokaler Supabase-Stack mit
-   Container-Laufzeit. Kostenpflichtige Projekte oder Branches benötigen vorher
-   eine Kostenfreigabe.
+### Bestätigter Backblaze-Zustand
 
-Providerunabhängiger Standardvorschlag, noch nicht aktiviert: `restic` mit einem
-privaten S3-kompatiblen Speicher als Ziel. `restic` verschlüsselt die Sicherung
-clientseitig. Bestehender Anbieter, Bucket, Zugangsmodell und mögliche Kosten
-werden erst nach Bestätigung eingerichtet. Ein verschlüsselter Backup-Speicher
-darf nie mit dem öffentlichen Avatar-Bucket identisch sein.
+Das neue B2-Konto liegt in EU Central. E-Mail ist bestätigt, Zwei-Faktor-Anmeldung
+ist aktiv, Business Groups sind deaktiviert. Die Kontoseite zeigte 0 Dollar und
+„Zahlungsweise eingeben“, also kein hinterlegtes Zahlungsmittel.
 
-Als konkrete S3-kompatible Option wurde Backblaze B2 mit EU-Region vorgeschlagen.
-Laut Anbieterpreis am 13. November 2026 sind die ersten 10 GB kostenlos, danach
-werden 6,95 US-Dollar pro TB und Monat berechnet. Das ist ein Vorschlag, kein
-eingerichtetes Konto und keine Kostenfreigabe. Region, Zugriffsrechte und mögliche
-weitere Nutzungskosten werden vor Einrichtung bestätigt.
+| Einstellung | Live geprüft |
+| --- | --- |
+| Speicherlimit | 0 Dollar, maximal 10 GB |
+| Downloadlimit | 0 Dollar, maximal 1 GB pro Tag |
+| Class B und C | jeweils maximal 2.500 Vorgänge pro Tag |
+| E-Mail-Warnungen | aktiviert |
+| Backup-Bucket | privat, leer, EU Central, serverseitige Verschlüsselung aktiv |
+| Objektversionen | alle Versionen behalten, Object Lock aus |
+| Event Notifications und Replikation | nicht eingerichtet |
 
-Vorgeschlagener Betriebsvertrag, noch nicht als aktiv bestätigt: tägliche
-Sicherung von Datenbank und Storage, 7 Tagesstände, 4 Wochenstände und 6
-Monatsstände, monatliche Wiederherstellungsprobe, verantwortlicher Empfänger
-Basti. Erst nach Messung des
-ersten vollständigen Exports und Restores werden RPO und RTO verbindlich
-festgelegt. Ein täglicher Lauf würde bei Erfolg ein RPO von höchstens 24 Stunden
-anstreben.
+Diese Grenzen stammen aus dem Konto. Die Skripte können Zahlungsdaten und alle
+Abrechnungsfunktionen nicht über die S3-API prüfen. Class D lässt sich beim
+Anbieter nicht mit einem Kostenlimit versehen und bleibt ungenutzt. Die
+Bestätigung der unveränderten Kontoeinstellungen bleibt Voraussetzung jedes
+Betriebs. Weder Caps noch ein Skriptbudget sind eine Zusage des Anbieters über
+zukünftige Tarife.
 
-## Vollständiger Sicherungslauf
+Ein auf den privaten Backup-Bucket begrenzter Anwendungsschlüssel vom UI-Typ
+„Read and Write“ ist eingerichtet, einschließlich `listAllBucketNames`, ohne
+Dateipräfix- oder Ablaufbeschränkung. Dieser UI-Rechtesatz erlaubt zusätzlich
+Änderungen an Bucket-Konfigurationen, darunter Verschlüsselung, Lifecycle,
+Logging, Benachrichtigungen und Replikation. Er ist daher kein minimaler
+Objektschlüssel. Der geprüfte Backupcode nutzt diese Konfigurationsrechte nicht.
+Class D bleibt durch den vorgesehenen Betrieb ungenutzt, ist aber nicht auf
+Berechtigungsebene ausgeschlossen.
 
-1. Projektzustand und Softwareversionen erfassen. CLI-Befehle anhand der
-   installierten Version und `--help` prüfen. Im November 2026 hat Supabase CLI
-   v3 das Zielverhalten geändert, daher eine geprüfte Version fest pinnen.
-2. Konsistenten Datenbankexport mit Schema, Geschäftsdaten, benötigten
-   Auth-Daten, Rollen, Funktionen, Triggern, Grants, RLS-Policies und Sequenzständen
-   erstellen. Den Scope anhand der aktuellen Supabase-Anleitung prüfen, statt
-   nur `public` zu exportieren. Auth-Passwörter und Sitzungsdaten machen den Dump
-   besonders schutzbedürftig.
-3. Bucket-Konfiguration und tatsächliche Objektdateien separat über die Storage
-   API sichern. Eine Auflistung oder `storage.objects` allein genügt nicht.
-   Eine Objektliste mit Dateischlüsseln bleibt Teil des verschlüsselten Backups.
-4. Im geschützten Manifest UTC-Zeit, Projekt, Toolversionen, Dateigrößen,
-   SHA-256-Prüfsummen, Tabellenzählungen und Objektanzahl festhalten. Keine
-   Personendaten im öffentlichen Nachweis. Änderungen während DB- und
-   Storage-Export erkennen und nötigenfalls wiederholen, damit Zuordnungen nicht
-   unbemerkt auseinanderlaufen.
-5. Archiv vor dem Upload verschlüsseln. Erst einen erfolgreichen Upload samt
-   erneutem Download und Prüfsummenvergleich als Sicherung werten.
-6. Alte Stände erst nach erfolgreicher Sicherung und gemäß bestätigter
-   Aufbewahrung entfernen. Ein fehlgeschlagener Lauf muss eine E-Mail auslösen.
+Die vier Repository-Secrets `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`,
+`BACKUP_S3_KEY_ID` und `BACKUP_S3_KEY` sind hinterlegt; ihre Namen wurden in der
+GitHub-Oberfläche geprüft. Datenbankzugang, Storage-Schlüssel und
+restic-Passwort fehlen weiterhin. Nach erneuter Prüfung der kostenlosen
+Anbieter-Caps und der fehlenden Zahlungsweise ist die Repository-Variable
+`BACKUP_FREE_TIER_CONFIRMED=true` gesetzt. `BACKUP_ENABLED` fehlt weiterhin,
+Environment-Variablen sind leer. Der Sicherungszeitplan bleibt damit gesperrt.
+Es wurden keine vollständigen Produktionsdaten gesichert und kein echter
+B2-Download-Restore durchgeführt. Bucket und Schlüssel allein sind kein
+Backup-Nachweis.
 
-Die vorhandene Supabase-Verbindung in dieser Arbeitsumgebung erlaubt SQL und
-Metadatenabfragen, liefert aber keinen vollständigen Dump oder Storage-Dateien.
-`psql`, `pg_dump`, Supabase CLI und eine Container-Laufzeit waren hier bei der
-Bestandsaufnahme nicht verfügbar. Ein Restore auf die Produktion ist kein
-isolierter Test und wird dafür nicht verwendet.
+### GitHub Actions einrichten
 
-### Vorbereitete Backup-Werkzeuge
+Der vorbereitete Workflow `.github/workflows/backup.yml` hat zwei manuelle Modi:
+`preflight` prüft nur Laufzeit, B2-Zugang und Speicherbudget, `backup` liest die
+Produktion, verschlüsselt den Export und lädt ihn nach B2. Es gibt keinen
+PR-Auslöser für Secrets. Auch manuelle Läufe sind auf den geprüften
+Standardbranch `main` begrenzt. Normale öffentliche Linux-Runner werden verwendet.
+
+| GitHub-Secret | Inhalt |
+| --- | --- |
+| `BACKUP_S3_ENDPOINT` | bestätigter HTTPS-S3-Endpunkt der EU-Region |
+| `BACKUP_S3_BUCKET` | privater Backup-Bucket |
+| `BACKUP_S3_KEY_ID`, `BACKUP_S3_KEY` | Anwendungsschlüssel nur für diesen Bucket, Lesen/Schreiben und Auflisten aller Bucket-Namen |
+| `BACKUP_RESTIC_PASSWORD` | starkes neues Passwort mit mindestens 32 Zeichen, getrennte sichere Wiederherstellungskopie aufbewahren |
+| `BACKUP_DB_HOST`, `BACKUP_DB_PORT`, `BACKUP_DB_USER` | offizielle direkte Verbindung oder Session-Pooler aus dem Supabase-Dashboard |
+| `BACKUP_DB_PASSWORD` | bestehendes Datenbankpasswort, niemals für diesen Auftrag zurücksetzen |
+| `BACKUP_SUPABASE_SERVICE_ROLE_KEY` | serverseitiger Schlüssel für den ausschließlich lesenden Storage-Export |
+
+DB-`postgres` und `service_role` sind erhöhte Zugänge und erlauben technisch
+mehr als Lesen. Nur der beauftragte Code verwendet sie lesend. Wer Workflows
+ändern kann, ist deshalb besonders zu begrenzen. Die Main-Prüfung im Workflow
+ersetzt keinen Repository-Schutz und keine Prüfung der zugriffsberechtigten
+Konten. Produktive Datenbankzugänge werden nicht in die Restore-Container-
+Umgebung übernommen.
+
+Die B2-Vorabprüfung benötigt keine Datenbank- oder Storage-Zugangsdaten. Der
+Schlüssel braucht Zugriff auf alle Objektversionen im eigenen Bucket. Keine
+Dateipräfix-Beschränkung setzen, die alte Versionen aus der Budgetprüfung
+ausblenden würde. Alle Schlüssel ausschließlich über die Provider-Oberfläche und
+GitHub Secrets hinterlegen, nicht im Chat, Repository oder Ausführungsprotokoll.
+
+Für die Übertragung vom eigenen angemeldeten Rechner ist der geprüfte Helfer
+vorgesehen:
 
 ```sh
-bash scripts/backup-create.sh
-bash scripts/restore-verify.sh SNAPSHOT LEERES_ZIELVERZEICHNIS
+bash scripts/configure-backup-secrets.sh
 ```
 
-`backup-create.sh` exportiert eine Datenbank mit `pg_dump` im Custom-Format und
-sichert die Storage-Dateien separat mit SHA-256-Prüfsummen. `restic` verschlüsselt
-das Ergebnis im bereits eingerichteten Ziel. Der Lauf benötigt Bash 4 oder neuer, Node.js,
-`psql`, `pg_dump`, `restic` und GNU `sha256sum`, etwa auf einem Linux-Runner.
+Er erzwingt `github.com` und das bestätigte Konto mit Administrationsrechten auf
+dem Zielrepository. Datenbankpasswort, B2-Schlüssel und restic-Passwort werden
+verdeckt eingelesen. Der vorhandene Service-Key wird ausschließlich gezielt aus
+`.env.local` gelesen, ohne Shell-Auswertung; alternativ wird er verdeckt
+abgefragt. Nach ausdrücklicher Terminalbestätigung überträgt der Helfer die zehn
+Werte an `gh secret set` über die Standardeingabe, nicht als Argumente. Er setzt
+keine Repository-Variable und aktiviert keinen Zeitplan. Der Helfer wurde nur
+mit erfundenen Schlüsseln und einem GitHub-Mock getestet, nicht zur echten
+Übertragung ausgeführt.
 
-| Konfiguration | Benötigte Angaben |
-| --- | --- |
-| Datenbank | `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE`, `PGPASSFILE`, `PGSSLMODE` |
-| Projekt und Storage | `BACKUP_PROJECT_REF`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
-| Verschlüsseltes Ziel | `RESTIC_REPOSITORY`, `RESTIC_PASSWORD_FILE` sowie die zum Speicheranbieter gehörenden Zugangsvariablen |
+Sind die vier B2-Secrets bereits über die Provider-Oberfläche hinterlegt, erhält
+der Helfer sie mit folgendem Aufruf:
 
-`SUPABASE_URL` muss genau zum angegebenen Projekt gehören. Der Exporter akzeptiert
-nur dessen offiziellen Direkt-Host oder einen offiziellen regionalen Pooler mit
-projektbezogenem `postgres`-Nutzer. Den Datenbankhost und den DB-Nutzer zusätzlich
-anhand der Verbindungsdaten im Dashboard abgleichen.
-`PGSSLMODE=verify-full` mit passendem Zertifikat ist bevorzugt. Das ebenfalls
-erlaubte `require` verschlüsselt, prüft aber die Serveridentität nicht vollständig.
-Die Passwortdateien müssen außerhalb des Repositorys liegen und restriktive
-Dateirechte besitzen.
+```sh
+bash scripts/configure-backup-secrets.sh --preserve-existing-b2
+```
 
-Das Skript legt vorübergehend unverschlüsselte Daten unter `TMPDIR` ab, mit
-privaten Datei- und Verzeichnisrechten. Nur eine vertrauenswürdige, geschützte
-Laufzeit verwenden. Die Daten werden am Ende entfernt; dadurch ist keine sichere
-Löschung auf einem kompromittierten oder gemeinsam genutzten Datenträger belegt.
+Dieser Modus prüft ausschließlich, ob die vier exakten Secret-Namen
+`BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_KEY_ID` und `BACKUP_S3_KEY`
+vorhanden sind. Er liest und validiert deren Werte nicht und fragt die
+B2-Schlüssel nicht erneut ab. Fehlt ein Name oder schlägt die Namensabfrage fehl,
+bricht er vor Eingaben und Übertragung ab. Nach Terminalbestätigung werden nur
+die übrigen sechs Secrets übertragen. Ohne Option bleibt der Modus mit zehn
+Secrets erhalten. Vier PTY-Tests mit erfundenen Schlüsseln prüfen beide Modi,
+fehlende Namen und die Wiederherstellung des Terminals nach Abbruch; eine
+unabhängige Prüfung einschließlich zusätzlicher Fehlerfälle ist erfolgt.
 
-Grenzen des vorbereiteten Exporters: `pg_dump --no-owner` sichert keine globalen
-Rollen oder Rollenpasswörter und übernimmt keine Eigentümerzuordnungen beim
-Restore. Plattformrollen und Eigentümer müssen gesondert berücksichtigt werden.
-Der Storage-Bestand wird vor dem Datenbankexport und nach den Downloads
-verglichen. Änderungen an Bucket-Einstellungen, Objektidentität, Metadaten oder
-Dateigrößen brechen den Lauf vor dem Upload ab. Die vier Storage-Mocktests und
-der simulierte Sicherungsablauf bestehen. Sie ersetzen keinen echten API-Lauf.
-DB und Storage bilden weiterhin keinen atomaren gemeinsamen Zeitpunkt;
-kurzzeitige Änderungen zwischen den Inventuren können unerkannt bleiben.
-Plattformkonfiguration, externe Dienste und Schlüssel
-werden nicht automatisch gesichert. Aufbewahrung und Zeitplan sind nicht
-aktiviert. Diese Lücken müssen vor der Abnahme des vollständigen Backup-Vertrags
-geschlossen oder ausdrücklich als akzeptierte Grenzen dokumentiert sein.
+Nach Kontoprüfung die Repository-Variable `BACKUP_FREE_TIER_CONFIRMED=true`
+setzen. `BACKUP_ENABLED` bleibt zunächst aus. Zuerst den manuellen Modus
+`preflight` erfolgreich prüfen. Erst mit vollständigen Zugangsdaten den Modus
+`backup` ausführen, beim ersten Mal `initialize_repository=true` und
+`verify_restore=true`. Initialisieren ist nur bei vollständig leerem Bucket
+erlaubt, einschließlich alter Versionen und Löschmarkierungen.
 
-`restore-verify.sh` lädt einen Snapshot in ein vorhandenes leeres Verzeichnis und
-prüft Manifest, Prüfsummen und Lesbarkeit des Datenbankarchivs. Es benötigt
-`restic`, `sha256sum` und `pg_restore`. Es spielt keine Daten ein und belegt deshalb
-keine Wiederherstellbarkeit der Anwendung. Der folgende isolierte Restore bleibt
-eine zusätzliche Pflichtprüfung.
+Ein täglicher Zeitplan um 03:27 UTC ist vorbereitet. Er arbeitet erst mit
+`BACKUP_ENABLED=true`, diese Variable erst nach belegter Sicherung und Restore
+setzen. Am ersten Tag des Monats ist zusätzlich ein erneuter Download und
+isolierter Datenbank-Restore vorgesehen. GitHub-Zeitpläne bleiben nach bestem
+Bemühen und können ausbleiben. Das bestehende E-Mail-Abonnement muss für den
+Ersteller dieses Workflows ebenfalls geprüft werden.
+
+### Export, Budget und Verschlüsselung
+
+`backup-create.sh` verwendet einen exportierten PostgreSQL-Snapshot in einer
+lesenden Repeatable-Read-Transaktion. Dump und Manifest der Tabellenstände
+verwenden denselben Snapshot. Vollständiges Custom-Archiv, Auth-Daten,
+Geschäftsdaten, Storage-Metadaten, Eigentümer, RLS, Funktionen, Trigger und Grants
+bleiben im verschlüsselten Backup. Rollen und Mitgliedschaften werden ohne
+Passwörter als Katalogmetadaten aufgenommen. Die tatsächliche PostgreSQL-Image-
+Digest wird aufgezeichnet und für Export und isolierten Restore verwendet.
+
+Der Datenbankzugang wird mit `default_transaction_read_only=on` verwendet.
+GitHub Actions prüft das TLS-Serverzertifikat mit `verify-full` und System-CAs.
+Der Storage-Bestand wird vor dem Dump und nach den Downloads verglichen.
+Abweichungen in Bucket-Einstellungen, Objektidentität, Metadaten oder Dateigrößen
+stoppen die Sicherung vor dem Upload. DB und Storage bilden dennoch keinen
+atomaren gemeinsamen Zeitpunkt. Kurzzeitige Änderungen zwischen den Inventuren
+können unerkannt bleiben, Sequenzwerte sind ebenfalls nicht MVCC-konsistent.
+
+Vor jedem Upload wird der gesamte sichtbare B2-Bestand einschließlich alter
+Objektversionen gezählt. Bei laufenden Multipart-Uploads oder mehr als einem
+sichtbaren Bucket wird abgebrochen. Das neue Payload darf höchstens 100 MB
+haben. Bestand plus dreifache Payload-Größe plus 128 MB Reserve muss unter
+8 GB liegen. Diese vorsichtige Zusatzgrenze ersetzt die bestätigten
+Anbieter-Caps nicht. Am Limit schlägt die Sicherung fehl, es wird kein Limit
+angehoben und kein bezahlter Mehrverbrauch freigeschaltet.
+
+`restic` verschlüsselt vor dem Upload. Auf dem kurzlebigen Runner liegen Daten
+vorübergehend unverschlüsselt in einem privaten Verzeichnis mit restriktiven
+Dateirechten. Private Diagnoseausgaben bleiben dort. Es werden keine Dumps,
+Dateien, Metadaten oder Diagnoseprotokolle als GitHub-Artefakte veröffentlicht.
+Das Verzeichnis wird am Ende entfernt. Eine sichere Löschung auf einem
+kompromittierten Datenträger ist damit nicht bewiesen.
+
+### Wiederherstellungsumfang und verbleibende Grenzen
+
+`restore-verify.sh` lädt den konkreten neuen Snapshot erneut aus B2, prüft
+SHA-256 und Lesbarkeit des Archivs. Mit `BACKUP_ISOLATED_RESTORE=true` startet es
+`restore-isolated.mjs`. Dieses erstellt einen frischen Supabase-Postgres-17-
+Container ohne Netzwerk, ohne veröffentlichte Ports, ohne SMTP, OAuth oder
+Webhooks und eine neue Zieldatenbank. Es gibt keine konfigurierbare produktive
+Restore-Adresse. Benötigte fehlende Rollen werden ohne LOGIN und ohne produktive
+Passwörter angelegt. Anschließend werden das gesamte Archiv eingespielt und
+Tabellenzählungen, RLS, Policies sowie Funktionen, Trigger, Constraints, Grants
+und Sequenzen gegen das Manifest verglichen. Storage-Dateien werden erneut
+gehasht, separat materialisiert und ihren wiederhergestellten DB-Metadaten
+zugeordnet. Der eigene kurzlebige Container wird anschließend entfernt.
+
+Das ist nach erfolgreichem echten Lauf ein Datenbank- und Dateinachweis.
+Anmeldung per Auth-API, Browser-Rollen-Gates, Tenant-Trennung und Abruf über die
+Storage-API werden damit noch nicht geprüft. Dafür bleibt die folgende
+Anwendungsabnahme nötig. Plattformkonfiguration, externe Dienste und
+Datenbank-Rollenpasswörter sind nicht Bestandteil dieser Wiederherstellung.
+Die Quelle hatte bei der reinen Metadatenprüfung keine Vault-Secrets. Sobald
+solche vorhanden sind, bricht der Export ab, weil deren Schlüssel einen eigenen
+Wiederherstellungsvertrag benötigen.
+
+Vorgeschlagene Aufbewahrung bleibt 7 Tagesstände, 4 Wochenstände und
+6 Monatsstände, monatliche Restore-Probe. Automatisches Löschen oder Pruning ist
+nicht implementiert und nicht aktiviert. Da B2 auch alte Objektversionen
+aufbewahrt, kann das kostenlose Budget früher erreicht sein. RPO und RTO sind
+erst nach den echten Läufen messbar, bislang gibt es keine zugesicherte
+Wiederherstellungszeit. Mocktests, Budgettests, Storage-Tests, Syntax und Lint
+sind erfolgreich, ein echter API-Lauf mit Zugangsdaten bleibt offen. Ein kompletter
+synthetischer PostgreSQL-Export und Restore auf einem kostenlosen Actions-Runner
+ist inzwischen erfolgreich. Image-Initialisierung, Rollen, das JSON-Protokoll mit
+mehreren Katalogeinträgen und der reale `pg_restore` wurden damit unabhängig von
+Live-Zugangsdaten erprobt. Der genaue Nachweis steht weiter unten.
 
 ## Nachweis einer Wiederherstellung
 
@@ -197,6 +277,32 @@ eine zusätzliche Pflichtprüfung.
    Wiederherstellungsdauer und Testergebnisse ohne Personendaten dokumentieren.
    Ziel und vertrauliche Testdaten anschließend kontrolliert stilllegen.
 
+### Nächste Stufe: vollständige Anwendungsabnahme
+
+Nach erfolgreichem synthetischem Datenbanktest und dem ersten echten
+B2-Download-Restore wird die isolierte Probe erweitert:
+
+1. Einen kurzlebigen lokalen Supabase-Stack auf dem kostenlosen Actions-Runner
+   erstellen. API-Ports nur an Loopback binden. Ausgehenden Mailversand,
+   Produktions-OAuth und Webhooks deaktivieren; externe Netzwerkziele sperren.
+2. Den aus B2 geladenen Stand in diesen Stack übernehmen. Den Avatar-Constraint
+   ausschließlich im isolierten Ziel auf die lokale Storage-Herkunft anpassen,
+   alle Objektbytes über die lokale Storage-API wiederherstellen und erneut
+   abrufen und hashen.
+3. Ausschließlich dort synthetische Konten für die unveränderten Rollen anlegen.
+   Anmeldung, Profil und Rollen-Gates über Auth- und REST-API prüfen. Keine
+   Nachrichten an aus dem Backup übernommene Konten versenden.
+4. Die Website mit lokalen Supabase-Zugangsdaten starten und FCB- sowie
+   JFG-Preview testen. Tenant-Trennung, unzureichende Rollen und einen Avatar-
+   Abruf im Browser prüfen. Testkonten dürfen nur das lokale Ziel verändern.
+5. Nur zusammengefasste Ergebnisse veröffentlichen. Screenshots, Trace-Dateien,
+   Dumps und Protokolle mit übernommenen Nutzerdaten nicht als Actions-Artefakte
+   speichern. Stack, lokale Dateien und Testkonten danach entfernen.
+
+Diese Stufe ist weiter Bestandteil des Auftrags und bleibt offen, bis die
+konkreten API- und Browser-Läufe belegt sind. Ein erfolgreicher Datenbank-Teiltest
+ersetzt sie nicht.
+
 ## E-Mail-Alarme und Error-Monitoring
 
 Bestätigter Wunsch: E-Mail an Basti. Die Zustellung einer GitHub-Actions-Fehlermail
@@ -217,8 +323,29 @@ diese PR-Probe belegt. Adressen und Nachrichteninhalte werden nicht im
 | --- | --- | --- |
 | Ausfall beider Domains | Externer HTTP-Monitor, etwa UptimeRobot Free | Konto, bestätigte E-Mail; zum Prüfzeitpunkt kostenlose HTTP-Prüfung alle 5 Minuten laut Anbieter |
 | HTTP-Prüfung aus diesem Repository | GitHub-Actions-Lauf mit `http-probe.mjs`, echter PR-Lauf und gezielte Alarmmail erfolgreich geprüft | Zeitplanbetrieb und dessen Benachrichtigungszuordnung noch offen; Zeitplan kann verzögert laufen |
-| Client- und Serverfehler | Sentry Developer oder vorhandener vergleichbarer Dienst | Konto, Projekt, DSN und bestätigter E-Mail-Kanal; keine bloß deaktivierte SDK-Konfiguration als fertiges Monitoring ausgeben |
-| Vercel-Anomaliealarme | Vercel Alerts | Dokumentation verlangt Pro/Enterprise und Observability Plus; keine Aktivierung ohne Kostenfreigabe |
+| Client- und Serverfehler | Sentry Developer, EU-Projekt eingerichtet | SDK-Einführung in Arbeit; echtes Ereignis, Datenschutzabnahme und zugehörige E-Mail noch offen |
+| Vercel-Anomaliealarme | Nicht vorgesehen | Kostenpflichtige Erweiterung und damit außerhalb des beauftragten Umfangs |
+
+Sentry wurde in einer EU-Organisation mit dem Projekt `fcb-website`
+(ID `4512424071790672`) eingerichtet. Der kostenlose Developer-Grundplan ist
+bestätigt, es gibt kein Zahlungsmittel und keine Mehrverbrauchsabrechnung. Ein
+geschenkter 14-Tage-Test ändert diese Vorgabe nicht und wird nicht kostenpflichtig
+verlängert. Der Developer-Tarif nimmt nach Überschreiten seiner Quote keine
+weiteren Ereignisse an, statt kostenpflichtig weiterzubuchen.
+
+Im Provider wurden IP-Speicherung verhindert, Standard- und Server-Scrubbing
+aktiviert, JavaScript-Quellcode-Nachladen deaktiviert, TLS-Prüfung aktiviert und
+der E-Mail-Präfix `FCB/JFG` gespeichert. Die Werte wurden nach Navigation erneut
+geprüft. Ein Sentry-Ereignis oder eine zugehörige E-Mail wurde noch nicht
+nachgewiesen. Für Vercel-Umgebungsvariablen reicht die derzeitige Connector-
+Berechtigung nicht aus, die CLI ist nicht vorhanden; die Provider-Anmeldung
+bleibt dafür erforderlich.
+
+Der vorgesehene SDK-Umfang sind unbehandelte Fehler in Browser, Server und Edge.
+Bereits abgefangene BFV-, HTTP- und Supabase-Fehler werden dadurch nicht umfassend
+erfasst. Beispielsweise behandeln BFV-Abruf und Passwort-Leak-Proxy ihre Fehler
+selbst. Die SDK-Einführung ist kein Nachweis, dass sämtliche Fehlerwege im
+Monitoring ankommen.
 
 Bei einem neuen Error-Monitor nur nötige Fehlerdaten übertragen. Session Replay,
 Tracing und Personenbezug bleiben zunächst aus. URLs, Header, Anfrageinhalte und
@@ -260,6 +387,59 @@ Ein erfolgreicher E-Mail-Test eines manuell gestarteten Laufs belegt allein noch
 nicht den Empfänger späterer Zeitplanalarme. Auch einen tatsächlichen geplanten
 Lauf und dessen auslösendes Konto prüfen.
 
+## Synthetischer Wiederherstellungsnachweis
+
+Der [erfolgreiche PostgreSQL-17-Prüflauf](https://github.com/BastiiSP/fcb-website/actions/runs/43417624819)
+verwendet ausschließlich erfundene Daten. Er exportiert mit dem unveränderten
+Sicherungsmodul aus einem netzwerkisolierten PostgreSQL-17-Container, verschlüsselt
+den Export in einem lokalen restic-Repository, lädt ihn daraus erneut und prüft
+die Wiederherstellung in einem zweiten Container mit `--network none`.
+Tabellenstände, RLS-Policies, Funktionen, Trigger, Constraints, Grants, Sequenzen
+und eine synthetische Storage-Datei wurden verglichen. Die Zeilenzahl der
+synthetischen Quelltabelle blieb vor und nach dem Export unverändert.
+
+Der echte Lauf hat drei im isolierten Restore korrigierte Fehler aufgedeckt:
+fehlende lokale Passwortübergabe, zu frühe Bereitschaft am temporären
+Initialisierungsserver und das Löschen des benötigten Standardschemas `public`.
+Die endgültige Bereitschaft wird jetzt durch einen authentisierten TCP-SELECT
+auf Loopback geprüft. Es werden keine Containerports veröffentlicht.
+
+Der Prüfer `scripts/backup-synthetic.test.sh`, seine SQL-Fixture und der Workflow
+`backup-synthetic.yml` bleiben reproduzierbar erhalten. Der Workflow lässt sich
+manuell ausführen und reagiert automatisch ausschließlich auf den separaten
+Testbranch `codex/backup-synthetic-proof`. Er benötigt keine Produktionssecrets
+und hat keinen Zeitplan.
+
+Dieser Nachweis umfasst weder B2 noch Supabase Auth, die Storage-API oder
+Anwendungsabläufe. Ein produktives verschlüsseltes B2-Backup samt erneutem
+Download und Restore sowie die vollständige Rollen- und Tenant-Abnahme bleiben
+offen. Es wurden keine Produktionsdaten exportiert.
+
+## Geprüfte SDK-Vorbereitung und bestehende Paketfunde
+
+Die Sentry-Einführung mit SDK `11.12.0` liegt in
+[Entwurf PR #9](https://github.com/BastiiSP/fcb-website/pull/9), Stand
+`ffa1d5cc8f0eb2158e23f74ecc5bc9e5c11de3ca`. Alle fünf Pflichtprüfungen
+sind erfolgreich. 39 Unit-Tests einschließlich einer echten SDK-Probe mit
+In-Memory-Transport prüfen das Filtern synthetischer vertraulicher Inhalte und
+Anhänge. Das belegt weder die Zustellung an Sentry noch eine Alarm-E-Mail.
+Echte Vorschauereignisse aus Browser und Server sowie die empfangenen Alarmmails
+bleiben offen. Die Änderung ist noch nicht gemergt.
+
+Der erfolgreiche
+[Auditvergleich](https://github.com/BastiiSP/fcb-website/actions/runs/43414322205)
+meldet für `main` und den Sentry-Stand dieselben 19 Paketfunde: 11 moderate,
+7 hohe und einen kritischen Fund. Bei Beschränkung auf Produktionsabhängigkeiten
+bleiben 11 Paketfunde. Sentry hat in diesem Vergleich keine neuen Funde ergänzt.
+Installiert ist Next.js `16.2.10`. Die geprüften GitHub-Advisories
+[GHSA-2464-fhr4-w9xw](https://github.com/advisories/GHSA-2464-fhr4-w9xw)
+und [GHSA-673q-mjm6-r5xr](https://github.com/advisories/GHSA-673q-mjm6-r5xr)
+nennen für Next.js 16 die Version `16.4.1` als gepatcht. Ihre Voraussetzungen
+betreffen Bildoptimierung unter glibc/Linux beziehungsweise bestimmte
+Cache-Components-Rückgaben. Die konkrete Ausnutzbarkeit dieser Anwendung wurde
+nicht geprüft. Ein Upgrade wurde nicht durchgeführt und bleibt eine eigene
+Aufgabe.
+
 ## Manuelle Prüfung
 
 - Beide Produktionsdomains → Startseite öffnen → richtige Marke und vollständige
@@ -286,7 +466,9 @@ Lauf und dessen auslösendes Konto prüfen.
 - [Supabase: Database Backups](https://supabase.com/docs/guides/platform/backups)
 - [Supabase: Backup and Restore using the CLI](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore)
 - [Supabase: Changelog](https://supabase.com/changelog)
-- [Backblaze B2: Preise](https://www.backblaze.com/cloud-storage/pricing)
+- [Backblaze B2: Kostenlimits](https://www.backblaze.com/docs/cloud-storage-data-caps-and-alerts)
+- [Sentry: Developer-Tarif](https://sentry.io/pricing/)
+- [Sentry: Keine Mehrverbrauchsabrechnung im Developer-Tarif](https://www.sentry.help/en/articles/13965037-can-i-set-up-an-on-demand-pay-as-you-go-budget-for-my-free-developer-plan)
 - [Vercel: Alerts](https://vercel.com/docs/alerts)
 - [UptimeRobot: Tarife](https://uptimerobot.com/pricing/)
 - [Sentry: Next.js Manual Setup](https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/)
