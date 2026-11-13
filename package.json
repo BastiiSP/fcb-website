@@ -18,6 +18,7 @@
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
     "@headlessui/react": "^2.2.3",
+    "@sentry/nextjs": "11.12.0",
     "@supabase/supabase-js": "^2.49.1",
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tippyjs/react": "^4.2.6",
