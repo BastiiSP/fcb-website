@@ -63,6 +63,29 @@ cross join unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) as rechte(name)
 
 select ok(has_table_privilege('anon', 'public.keepalive', 'INSERT'), 'Keepalive erlaubt anon INSERT');
 select ok(has_table_privilege('anon', 'public.sportheim_anfragen', 'INSERT'), 'Sportheim erlaubt öffentliche Anfragen');
+select ok(
+  not has_table_privilege('anon', 'public.' || tabellen.name, rechte.name),
+  tabellen.name || ': anon besitzt kein ' || rechte.name
+)
+from unnest(array['keepalive', 'sportheim_anfragen']) as tabellen(name)
+cross join unnest(array['SELECT', 'UPDATE', 'DELETE']) as rechte(name);
+select ok(
+  not has_table_privilege('authenticated', 'public.keepalive', rechte.name),
+  'Keepalive besitzt kein authenticated-' || rechte.name
+)
+from unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) as rechte(name);
+select ok(
+  not exists (
+    select 1 from pg_default_acl d
+    join pg_namespace n on n.oid = d.defaclnamespace
+    cross join lateral aclexplode(d.defaclacl) a
+    join pg_roles r on r.oid = a.grantee
+    where n.nspname = 'public' and pg_get_userbyid(d.defaclrole) = 'postgres'
+      and d.defaclobjtype = 'r' and r.rolname in ('anon', 'authenticated')
+      and a.privilege_type in ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
+  ),
+  'Neue Tabellen erhalten keine pauschalen Client-DML-Rechte'
+);
 select ok(has_function_privilege('anon', 'public.sportheim_belegte_zeiten()', 'EXECUTE'), 'Öffentliche Sportheim-Belegung ist aufrufbar');
 select ok(
   not exists (
@@ -97,7 +120,7 @@ select ok(
   'Das Trainerverzeichnis besitzt keine breite Profil-SELECT-Policy'
 );
 select is(
-  (select column_default from information_schema.columns where table_schema = 'public' and table_name = 'mitglieder' and column_name = 'verein'),
+  (select column_default::text from information_schema.columns where table_schema = 'public' and table_name = 'mitglieder' and column_name = 'verein'),
   null::text,
   'Mitglieder benötigen eine ausdrückliche Vereinszuordnung'
 );

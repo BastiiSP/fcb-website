@@ -1,6 +1,6 @@
 # Supabase-Migrationsabgleich
 
-Arbeitsstand: 13.11.2026. Der Abgleich verändert ausschließlich das Repository. Produktionsschema, Daten und die Tabelle `supabase_migrations.schema_migrations` wurden dabei nicht verändert.
+Arbeitsstand: 13.11.2026. Die historische Rekonstruktion verändert ausschließlich das Repository. Nach einem echten isolierten Replay wurde zusätzlich `20261113090446_reproducible_schema_baseline.sql` per MCP angewendet. Sie ergänzt die Reproduzierbarkeit neuer Umgebungen. Auf Produktion blieben sämtliche geprüften effektiven Rechte, Bucket-Einstellungen, Tabellen und Funktionsdefinitionen unverändert; die Migrationshistorie erhielt den neuen Eintrag und umfasst jetzt 27 Versionen.
 
 ## Ursache und Korrektur
 
@@ -37,17 +37,21 @@ Der lokale Entwurf `20260812120000_prevent_role_escalation.sql` wurde nach `supa
 
 ## Getrennt zu schließende Reproduzierbarkeitslücken
 
-Die passende Historie allein beweist keinen vollständigen Neuaufbau. Folgende Punkte brauchen einen isolierten Lauf und gegebenenfalls additive Migrationen:
+Die passende Historie allein beweist keinen vollständigen Neuaufbau. Der erste GitHub-Lauf hat alle 26 historischen Migrationen erfolgreich auf einer frischen Supabase-Datenbank ausgeführt. Der anschließende Vertragstest zeigte zu breite geerbte anon-DML-Rechte sowie den fehlenden Bucket; außerdem wurde ein Typvergleich im Test korrigiert.
 
-1. Der Bucket `avatars` wird von keiner historischen Migration angelegt. Seine Anlage muss separat versioniert werden. Ein bestehender Produktionsbucket darf dabei weder ersetzt noch umkonfiguriert werden.
-2. Die Historie setzt an einzelnen Stellen voraus, welche Standardrechte die Umgebung bereits vergeben hat. Insbesondere fehlen die expliziten `authenticated`-GRANTs für `mitglieder`. Ein Neuaufbau muss effektive Tabellen-, Funktions-, Sequenz- und Standardrechte gegen den aktuellen Vertrag prüfen. Historische Dateien werden dafür nicht umgeschrieben.
+1. Der Bucket `avatars` wird von keiner historischen Migration angelegt. Die additive Baseline legt ihn ausschließlich bei Fehlen an. Bei abweichender vorhandener Konfiguration bricht sie ab. Bestehende Objekte und Einstellungen werden nicht ersetzt.
+2. Die additive Baseline gleicht ausschließlich Tabellen-DML und entsprechende postgres-Standardrechte auf den aus Produktion gelesenen Vertrag ab. Sie enthält auch die zuvor fehlenden ausdrücklichen `authenticated`-GRANTs für `mitglieder`. RLS, Rollenregeln, Trigger, Sequenzrechte und sonstige Tabellenrechte bleiben unangetastet. Die 26 historischen Dateien bleiben unverändert.
 3. Der Avatar-URL-Constraint enthält die produktive Supabase-Domain. Ein isoliertes Projekt benötigt eine bewusst überprüfte Behandlung dieses Herkunftsvertrags, damit Profilbild-Uploads nicht unbemerkt am Constraint scheitern. Die Rekonstruktion verändert diese Sicherheitsregel nicht.
-4. Ein vollständiger Replay auf einer frischen Supabase-Datenbank und der anschließende Schemaabgleich stehen zum Zeitpunkt dieses Dokuments noch aus. Lokal waren weder Docker noch die Supabase-CLI verfügbar. Ein erfolgreicher statischer Abgleich ersetzt diesen Test nicht.
+4. Der erneute isolierte Replay einschließlich der additiven Baseline und aller Vertragsprüfungen steht zum Zeitpunkt dieses Dokuments noch aus. Der erste Lauf verwendete PostgreSQL 17.11.0.018, Produktion meldet 17.6. Damit wird dieselbe Hauptversion mit unterschiedlichem Wartungsstand geprüft. Lokal waren Docker und die Supabase-CLI nicht vorhanden; der Lauf erfolgt in GitHub Actions ohne Produktionszugangsdaten.
+
+## Nachweis der produktiven Baseline-Anwendung
+
+Die exakte SQL-Datei wurde vor Anwendung unabhängig geprüft. Ein Vorher/Nachher-Abgleich per MCP bestätigte identische 144 effektive Tabellenrechte für anon, authenticated und service_role einschließlich MAINTAIN, REFERENCES, TRIGGER und TRUNCATE. Die postgres-Standardrechte im Schema public und sämtliche geprüften avatars-Bucket-Metadaten sind ebenfalls identisch geblieben. Alle 13 öffentlichen Funktionsdefinitionen sind unverändert. Weiterhin existieren sechs öffentliche Tabellen mit aktivierter RLS. Die neue kanonische Version wurde aus der Remote-Historie übernommen; es gab keine Reparatur bestehender Historieneinträge.
 
 ## Sicherer Prüfablauf
 
 1. Die versionierten Dateien gegen `migration-history.json` prüfen. Bereits angewendete Migrationen bleiben unveränderlich; weitere Änderungen erhalten neue Versionen.
-2. In einer isolierten Supabase-Umgebung ohne Produktionsverbindung alle 26 Migrationen in Versionsreihenfolge ausführen. Auth- und Storage-Grundschema müssen aus Supabase stammen. Keine Produktionsdaten importieren.
+2. In einer isolierten Supabase-Umgebung ohne Produktionsverbindung alle 27 Migrationen in Versionsreihenfolge ausführen. Auth- und Storage-Grundschema müssen aus Supabase stammen. Keine Produktionsdaten importieren.
 3. Tabellen, Spalten, Constraints, Indizes, aktivierte RLS, Policies, Trigger samt Aktivierungszustand sowie effektive Rechte prüfen. Insbesondere Rollen- und Tenant-Grenzen testen.
 4. Fehlende Umgebungsbestandteile separat ergänzen und den Neuaufbau wiederholen. Kostenpflichtige Preview-Branches sind dafür nicht automatisch freigegeben.
 5. Nach dem Merge die Supabase-Integration kontrollieren. Deaktivierte Preview-Branches können einen übersprungenen Check erzeugen; das ist kein erfolgreicher Migrationstest.
@@ -56,8 +60,8 @@ Weder ein ungezieltes `migration repair` noch ein erneutes Anwenden der historis
 
 ## Manuelle Abnahme
 
-- GitHub → den Pull Request mit dem Abgleich öffnen und die Migrationen prüfen → 26 aktive historische Dateien und ein separater archivierter Entwurf; Fehlermerkmale: doppelte Versionen, veränderte SQL-Semantik oder fehlendes Initialschema.
-- Supabase-Dashboard → Database/Migrations des Produktionsprojekts öffnen und Versionen vergleichen → Übereinstimmung mit den 26 rekonstruierten Versionen; Fehlermerkmale: zusätzliche ungeklärte Versionen oder erneute Meldung über fehlende lokale Migrationen.
+- GitHub → den Pull Request mit dem Abgleich öffnen und die Migrationen prüfen → 26 historische Dateien, eine additive Baseline und ein separater archivierter Entwurf; Fehlermerkmale: doppelte Versionen, veränderte historische SQL-Semantik oder fehlendes Initialschema.
+- Supabase-Dashboard → Database/Migrations des Produktionsprojekts öffnen und Versionen vergleichen → Übereinstimmung mit den 27 lokalen Versionen; Fehlermerkmale: zusätzliche ungeklärte Versionen oder erneute Meldung über fehlende lokale Migrationen.
 - GitHub → Supabase-Check des Pull Requests öffnen → ein tatsächlicher Testlauf ist von einem deaktivierten beziehungsweise übersprungenen Preview-Lauf klar unterscheidbar; Fehlermerkmal: `SKIPPED` wird als erfolgreiche Schemawiederherstellung gewertet.
 - Isolierte Testwebsite → registrieren, Profil öffnen, Profilbild hochladen und mit Testrollen auf Mitgliederverwaltung zugreifen → Profiltrigger, Storage und Tenant-Trennung funktionieren; Fehlermerkmale: fehlender Bucket, `permission denied`, Avatar-Constraint-Verletzung oder fremde Mitgliederdaten. Ausschließlich synthetische Konten in der Testumgebung verwenden.
 
