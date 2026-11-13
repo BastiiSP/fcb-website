@@ -42,7 +42,8 @@ try {
   }
   for (const membership of manifest.memberships) sql(`GRANT ${quote(membership.role)} TO ${quote(membership.member)} WITH ADMIN ${membership.admin ? "TRUE" : "FALSE"}, INHERIT ${membership.inherit ? "TRUE" : "FALSE"}, SET ${membership.set ? "TRUE" : "FALSE"};`, "postgres");
   sql("CREATE DATABASE isolated_restore TEMPLATE template0;", "postgres");
-  sql("DROP SCHEMA public CASCADE;");
+  // pg_dump setzt das Standardschema public voraus. Die neue template0-Datenbank
+  // enthält dort keine Anwendungsobjekte, das Schema muss für den Restore bleiben.
   docker(["exec", "-e", `PGPASSWORD=${containerPassword}`, name, "pg_restore", "--exit-on-error", "--single-transaction", "--username=supabase_admin", "--dbname=isolated_restore", "/backup/database.dump"]);
   for (const table of manifest.tables) {
     const state = JSON.parse(sql(`SELECT json_build_object('rows',(SELECT count(*) FROM ${quote(table.schema)}.${quote(table.table)}),'rls',c.relrowsecurity,'forceRls',c.relforcerowsecurity) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=${literal(table.schema)} AND c.relname=${literal(table.table)};`));
