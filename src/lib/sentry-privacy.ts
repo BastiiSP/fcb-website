@@ -18,6 +18,12 @@ interface EventInput {
   exception?: { values?: ExceptionInput[] };
 }
 
+interface SentryMetadaten {
+  laufzeit: "browser" | "server" | "edge";
+  umgebung?: string;
+  release?: string;
+}
+
 const ERROR_TYPES = new Set([
   "Error", "TypeError", "ReferenceError", "RangeError", "SyntaxError",
   "URIError", "EvalError", "AggregateError",
@@ -30,10 +36,12 @@ function sichereAssetDatei(frame: FrameInput): string | undefined {
   if (!candidate) return undefined;
   // Nur generierte Hash-Dateien zulassen, niemals dynamische Pfade oder Parameter.
   const match = candidate.match(/(?:^|\/)\_next\/static\/chunks\/([a-f0-9]{8,64}\.js)(?:[?#].*)?$/i);
-  return match ? `/_next/static/chunks/${match[1]}` : undefined;
+  if (match) return `/_next/static/chunks/${match[1]}`;
+  const serverMatch = candidate.match(/(?:^|\/)\.next\/server\/chunks\/(?:ssr\/)?([a-f0-9]{8,64}\.js)(?:[?#].*)?$/i);
+  return serverMatch ? `/.next/server/chunks/${serverMatch[1]}` : undefined;
 }
 
-export function bereinigeSentryEvent(event: EventInput) {
+export function bereinigeSentryEvent(event: EventInput, metadaten: SentryMetadaten = { laufzeit: "server" }) {
   const values = event.exception?.values?.map((exception) => ({
     type: exception.type && ERROR_TYPES.has(exception.type) ? exception.type : "Error",
     value: exception.value && TEST_CODES.has(exception.value) ? exception.value : "Fehlerdetails aus Datenschutzgründen entfernt",
@@ -53,6 +61,9 @@ export function bereinigeSentryEvent(event: EventInput) {
     event_id: event.event_id && /^[a-f0-9]{32}$/i.test(event.event_id) ? event.event_id : undefined,
     timestamp: event.timestamp,
     platform: "javascript",
+    tags: { laufzeit: metadaten.laufzeit },
+    environment: ["production", "preview", "development"].includes(metadaten.umgebung ?? "") ? metadaten.umgebung : undefined,
+    release: metadaten.release && /^[a-f0-9]{40}$/i.test(metadaten.release) ? metadaten.release : undefined,
     level: "error" as const,
     exception: values?.length ? { values } : {
       values: [{ type: "Error", value: "Fehlerdetails aus Datenschutzgründen entfernt", stacktrace: undefined }],

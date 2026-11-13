@@ -9,6 +9,10 @@ Sentry.init({
   enableLogs: false,
   sendClientReports: false,
   maxBreadcrumbs: 0,
-  beforeSend: bereinigeSentryEvent,
+  beforeSend: (event) => bereinigeSentryEvent(event, {
+    laufzeit: "server",
+    umgebung: process.env.VERCEL_ENV ?? (process.env.NODE_ENV === "development" ? "development" : undefined),
+    release: process.env.VERCEL_GIT_COMMIT_SHA,
+  }),
   beforeBreadcrumb: () => null,
 });

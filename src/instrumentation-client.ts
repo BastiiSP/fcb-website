@@ -11,6 +11,10 @@ Sentry.init({
   integrations: (integrations) => integrations.filter((integration) => integration.name !== "BrowserSession"),
   sendClientReports: false,
   maxBreadcrumbs: 0,
-  beforeSend: bereinigeSentryEvent,
+  beforeSend: (event) => bereinigeSentryEvent(event, {
+    laufzeit: "browser",
+    umgebung: process.env.NEXT_PUBLIC_VERCEL_ENV ?? (process.env.NODE_ENV === "development" ? "development" : undefined),
+    release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+  }),
   beforeBreadcrumb: () => null,
 });
