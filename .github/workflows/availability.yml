@@ -1,0 +1,52 @@
+name: Verfügbarkeit FCB und JFG
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/http-probe*'
+      - '.github/workflows/availability.yml'
+  schedule:
+    # GitHub führt Zeitpläne nach Verfügbarkeit aus, ohne garantierte Startzeit.
+    - cron: '3-59/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_alert:
+        description: 'Alarmprobe: absichtlich fehlschlagen, ohne eine Website abzuschalten'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  verfuegbarkeit:
+    name: Beide Produktionsdomains prüfen
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.test_alert }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Prüflogik ohne Netzwerk testen
+        run: node --test scripts/http-probe.test.mjs
+      - name: Öffentliche Startseiten prüfen
+        run: node scripts/http-probe.mjs
+
+  alarmprobe:
+    name: Kontrollierte E-Mail-Alarmprobe
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_alert }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Testalarm ohne Produktionsausfall auslösen
+        run: |
+          echo 'ALARM_PROBE: Dieser manuelle Lauf schlägt absichtlich fehl.'
+          echo 'Jetzt den Eingang der GitHub-Actions-E-Mail beim bestätigten Empfänger prüfen.'
+          exit 1

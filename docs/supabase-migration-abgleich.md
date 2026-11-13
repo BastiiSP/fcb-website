@@ -46,6 +46,11 @@ Die passende Historie allein beweist keinen vollständigen Neuaufbau. Der erste 
 
 Nachweis: [Schema-Replay 43398661276](https://github.com/BastiiSP/fcb-website/actions/runs/43398661276), Commit `9923307607d15b16fdb561a293eb67e7f86fdf73`, Ergebnis `Files=1, Tests=130`, `Result: PASS`. Auch die reguläre CI desselben Commits war erfolgreich. Das ist ein tatsächlicher lokaler Datenbank-Neuaufbau im GitHub-Runner. Ein deaktivierter gehosteter Supabase-Preview-Branch bleibt davon getrennt und wird nicht als erfolgreicher Hosted-Preview-Test ausgegeben. Ein vollständiger Restore von Produktionsdaten und Storage-Dateien wurde damit ebenfalls nicht getestet.
 
+Nach dem Merge von PR #7 war der zuvor fehlgeschlagene Check `Supabase Preview`
+auf `main` bei Commit `fd210f7f2e3e4e06ea1c23a2a4d85dc51b6721e3` erfolgreich.
+Auch reguläre CI, Schema-Replay und produktives Vercel-Deployment bestanden.
+Gehostete Preview-Datenbanken pro Pull Request bleiben deaktiviert.
+
 ## Nachweis der produktiven Baseline-Anwendung
 
 Die exakte SQL-Datei wurde vor Anwendung unabhängig geprüft. Ein Vorher/Nachher-Abgleich per MCP bestätigte identische 144 effektive Tabellenrechte für anon, authenticated und service_role einschließlich MAINTAIN, REFERENCES, TRIGGER und TRUNCATE. Die postgres-Standardrechte im Schema public und sämtliche geprüften avatars-Bucket-Metadaten sind ebenfalls identisch geblieben. Alle 13 öffentlichen Funktionsdefinitionen sind unverändert. Weiterhin existieren sechs öffentliche Tabellen mit aktivierter RLS. Die neue kanonische Version wurde aus der Remote-Historie übernommen; es gab keine Reparatur bestehender Historieneinträge.
