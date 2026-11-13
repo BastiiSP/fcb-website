@@ -38,7 +38,7 @@ else if (input.includes('pg_policies')) {
 else if (input.includes('json_build_object')) console.log('{}');
 `;
 
-async function run(failure, metadataSearchPath = ["public", "extensions"], projectRef = "anderesprojekt") {
+async function run(failure, metadataSearchPath = ["public", "extensions"], projectRef = "anderesprojekt", applicationRestore = "false") {
   const dir = await mkdtemp(path.join(os.tmpdir(), "restore-diagnostics-"));
   try {
     const bin = path.join(dir, "bin");
@@ -47,7 +47,7 @@ async function run(failure, metadataSearchPath = ["public", "extensions"], proje
     await writeFile(path.join(bin, "docker"), fakeDocker, { mode: 0o755 });
     await writeFile(path.join(payload, "backup.json"), JSON.stringify({ schemaVersion: 2, metadataSearchPath: metadataSearchPath === null ? undefined : metadataSearchPath, projectRef, serverVersion: "17.6", vaultSecrets: 0, postgresImage: `supabase/postgres@sha256:${"a".repeat(64)}`, roles: [{ name: "beispiel" }], memberships: [{ role: "a", member: "b" }], tables: [{ schema: "public", table: "beispiel", rows: 1, rls: true, forceRls: false }], policies: [{ schemaname: "public", tablename: secret, policyname: "test", permissive: "PERMISSIVE", roles: ["a", "z"], cmd: "SELECT", qual: "true", with_check: null }, { schemaname: "public", tablename: "andere", policyname: "test", permissive: "PERMISSIVE", roles: ["public"], cmd: "SELECT", qual: "true", with_check: null }], catalog: {} }));
     await writeFile(path.join(payload, "storage.json"), JSON.stringify({ objects: [] }));
-    return spawnSync(process.execPath, [script, payload], { encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAIL: failure } });
+    return spawnSync(process.execPath, [script, payload], { encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAIL: failure, BACKUP_APPLICATION_RESTORE: applicationRestore, RESTORE_APP_PREPARED_FILE: "" } });
   } finally { await rm(dir, { recursive: true, force: true }); }
 }
 
@@ -90,4 +90,14 @@ test("Restore akzeptiert nur den festgelegten oder belegten früheren Metadatenk
   assert.match(invalid.stderr, /Phase: CONTAINER; Klasse: VERTRAG/);
   assert.equal((await run("", null, "jktvmckqfklfziszfsxf")).status, 0);
   assert.equal((await run("", null, "anderesprojekt")).status, 1);
+});
+
+
+test("Anwendungsprobe benötigt explizite private Vorbereitung und bleibt sonst aus", async () => {
+  const result = await run("", ["public", "extensions"], "anderesprojekt", "true");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Phase: APP_VORBEREITUNG; Klasse: VERTRAG/);
+  assert.doesNotMatch(result.stdout, /Restore, RLS und Storage-Dateiprüfung erfolgreich/);
+  assert.doesNotMatch(result.stderr + result.stdout, new RegExp(secret));
+  assert.equal((await run("", ["public", "extensions"], "anderesprojekt", "ungueltig")).status, 1);
 });

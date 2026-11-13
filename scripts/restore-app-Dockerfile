@@ -1,0 +1,17 @@
+# Nur synthetische Laufzeit und ein frisch erzeugter lokaler Anon-Key.
+FROM mcr.microsoft.com/playwright@sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY next.config.ts tsconfig.json tailwind.config.ts postcss.config.js ./
+COPY src ./src
+COPY public ./public
+ARG RESTORE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=https://127.0.0.1:8000
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${RESTORE_ANON_KEY}
+ENV NEXT_PUBLIC_SENTRY_DSN=""
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+ENV HOSTNAME=127.0.0.1
+ENV NODE_EXTRA_CA_CERTS=/tls/server.crt
+CMD ["npm", "run", "start", "--", "--port", "3002"]

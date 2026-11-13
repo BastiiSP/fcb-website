@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { copyFile, mkdir, open, readFile, writeFile } from "node:fs/promises";
+import { copyFile, lstat, mkdir, open, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { canonical, CATALOG_SQL } from "./backup-contract.mjs";
 
@@ -16,6 +16,9 @@ const manifest = JSON.parse(await readFile(path.join(destination, "backup.json")
 const storage = JSON.parse(await readFile(path.join(destination, "storage.json"), "utf8"));
 let stage = "CONTAINER";
 let failure = "UNBEKANNT";
+let application;
+let applicationModule;
+const applicationRequested = process.env.BACKUP_APPLICATION_RESTORE === "true";
 function contract(condition) {
   if (!condition) { failure = "VERTRAG"; throw new Error(); }
 }
@@ -80,6 +83,22 @@ function sql(query, database = "isolated_restore") {
   return docker(["exec", "-i", "-e", `PGPASSWORD=${containerPassword}`, name, "psql", "-XqAt", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose", "-U", "supabase_admin", "-d", database], `SET search_path = public, extensions;\n${query}`);
 }
 try {
+  contract([undefined, "false", "true"].includes(process.env.BACKUP_APPLICATION_RESTORE));
+  if (applicationRequested) {
+    stage = "APP_VORBEREITUNG";
+    const preparedFile = process.env.RESTORE_APP_PREPARED_FILE;
+    contract(typeof preparedFile === "string" && preparedFile.length > 0
+      && path.dirname(path.resolve(preparedFile)) === path.resolve(process.env.TMPDIR ?? "/tmp"));
+    const preparedStat = await lstat(preparedFile);
+    contract(preparedStat.isFile() && (preparedStat.mode & 0o077) === 0);
+    applicationModule = await import("./restore-app-orchestrator.mjs");
+    application = JSON.parse(await readFile(preparedFile, "utf8"));
+    contract(/^fcb-app-probe:[a-f0-9]{24}$/.test(application.image ?? "")
+      && /^sha256:[a-f0-9]{64}$/.test(application.imageId ?? "")
+      && canonical(application.images) === canonical(applicationModule.RESTORE_APP_IMAGES));
+    // Images und minimaler Build sind bereits vor B2-Secrets und Download vorbereitet.
+    stage = "CONTAINER";
+  }
   contract(manifest.schemaVersion === 2 && /^17\./.test(manifest.serverVersion) && manifest.vaultSecrets === 0 && /^supabase\/postgres@sha256:[a-f0-9]{64}$/.test(manifest.postgresImage ?? ""));
   // Für ältere FCB-Backups wurde dieser effektive Quellpfad nachträglich geprüft;
   // das frühere Manifest selbst enthält keinen Suchpfad.
@@ -139,7 +158,22 @@ try {
     await copyFile(path.join(destination, "objects", object.file), path.join(restoredFiles, object.file));
   }
   await writeFile(path.join(destination, "restore-proof.json"), JSON.stringify({ verifiedAt: new Date().toISOString(), databaseRestored: true, network: "none", tablesCompared: manifest.tables.length, policiesCompared: policies.length, catalogCompared: true, filesCompared: storage.objects.length, applicationFlowsVerified: false }), { mode: 0o600 });
-  console.log("Isolierter Datenbank-Restore, RLS und Storage-Dateiprüfung erfolgreich. Keine App-Anmeldung oder Storage-API geprüft.");
+  console.log("Isolierter Datenbank-Restore, RLS und Storage-Dateiprüfung erfolgreich." + (applicationRequested ? "" : " Keine App-Anmeldung oder Storage-API geprüft."));
+  if (applicationRequested) {
+    stage = "APP_PRUEFUNG";
+    let applicationProof;
+    try {
+      applicationProof = await applicationModule.pruefeAnwendung({ containerName: name, destination, manifest, storage }, application);
+    } catch (error) {
+      const phase = /^Isolierte Anwendungsprobe fehlgeschlagen\. Phase: (ISOLATION|TLS|ROLLEN|DIENSTE|VERTRAG|LOKALISIERUNG|BROWSER|ANWENDUNG_STORAGE|ANWENDUNG_AUTH|ANWENDUNG_ROLLEN|ANWENDUNG_BROWSER|ISOLATION_NACHLAUF)\.$/.exec(error instanceof Error ? error.message : "")?.[1];
+      if (phase) stage = `APP_${phase}`;
+      failure = "ANWENDUNG";
+      throw new Error();
+    }
+    contract(applicationProof?.applicationFlowsVerified === true);
+    await writeFile(path.join(destination, "restore-proof.json"), JSON.stringify({ verifiedAt: new Date().toISOString(), databaseRestored: true, network: "none", tablesCompared: manifest.tables.length, policiesCompared: policies.length, catalogCompared: true, filesCompared: storage.objects.length, ...applicationProof }), { mode: 0o600 });
+    console.log("Isolierte Anwendungsprobe erfolgreich: Storage, Auth, Rollen und beide Tenant-Browserfälle geprüft.");
+  }
 } catch {
   if (failure === "UNBEKANNT") {
     try { failure = classify(await readFile(path.join(destination, "restore-private.log"), "utf8")); } catch { /* Private Diagnose bleibt unzugänglich. */ }
@@ -147,6 +181,7 @@ try {
   console.error(`Isolierter Restore fehlgeschlagen. Phase: ${stage}; Klasse: ${failure}. Keine privaten Diagnosedaten veröffentlicht.`);
   process.exitCode = 1;
 } finally {
+  applicationModule?.entferneRestoreApp(application);
   spawnSync("docker", ["rm", "--force", "--volumes", name], { stdio: "ignore", timeout: 30_000 });
   await log.close();
 }

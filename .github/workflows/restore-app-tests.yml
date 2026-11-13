@@ -1,0 +1,63 @@
+name: Isolierte Anwendungsprobe vorbereiten
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/restore-app-tests.yml'
+      - '.github/workflows/backup-restore.yml'
+      - 'scripts/restore-app-*'
+      - 'scripts/restore-isolated.mjs'
+      - 'scripts/restore-isolated-diagnostics.test.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  helper:
+    name: Restore-Helfer und echtes Gateway-TLS prüfen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CI: 'true'
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Testabhängigkeiten installieren
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Helfer einschließlich realer lokaler TLS-Anfragen prüfen
+        run: node --test --test-concurrency=1 scripts/restore-app-*.test.mjs scripts/restore-isolated-diagnostics.test.mjs
+  build:
+    name: Öffentliche App-Vorbereitung ohne Backupdaten prüfen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Gepinnte Images und minimalen App-Build prüfen
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import { prepareRestoreApp, entferneRestoreApp } from './scripts/restore-app-orchestrator.mjs';
+          let prepared;
+          try {
+            prepared = await prepareRestoreApp();
+            console.log('Synthetische App-Vorbereitung mit festen Images erfolgreich. Keine Backupdaten verwendet.');
+          } catch (error) {
+            const diagnostic = /^App-Vorbereitung fehlgeschlagen\. Phase: (IMAGE_PULL|IMAGE_CHECK|BUILD_CONTEXT|BUILD|IMAGE_ID); Klasse: (VERTRAG|ZEITLIMIT|MODULE_MISSING|TYPESCRIPT|NETWORK|UNBEKANNT)\.$/.exec(error instanceof Error ? error.message : '');
+            console.error(diagnostic ? diagnostic[0] : 'Synthetische App-Vorbereitung fehlgeschlagen. Keine privaten Diagnosen veröffentlicht.');
+            process.exitCode = 1;
+          } finally { entferneRestoreApp(prepared); }
+          JS

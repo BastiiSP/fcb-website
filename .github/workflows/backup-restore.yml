@@ -2,6 +2,11 @@ name: Vorhandene Sicherung isoliert wiederherstellen
 
 on:
   workflow_dispatch:
+    inputs:
+      verify_application:
+        description: 'Zusätzlich Auth, Storage, Rollen und beide Tenants ausschließlich isoliert prüfen'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -16,7 +21,7 @@ jobs:
     name: Vorhandenen B2-Stand ohne Quellzugriff prüfen
     if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       BACKUP_PROJECT_REF: jktvmckqfklfziszfsxf
       BACKUP_POSTGRES_IMAGE: supabase/postgres@sha256:178f0976b54a39237096bfa310c1a352dbc82fb1b08dda45cdb8acb5d40c1426
@@ -43,6 +48,28 @@ jobs:
           sudo apt-get install -y -qq restic >> "${RUNNER_TEMP}/fcb-restore-private/install.log" 2>&1
           command -v aws >/dev/null
           test -x scripts/backup-pg-tool.sh
+      - name: Anwendung vor Backupdaten ohne Secrets vorbereiten
+        if: ${{ inputs.verify_application }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export TMPDIR="${RUNNER_TEMP}/fcb-restore-private"
+          export RESTORE_APP_PREPARED_FILE="${TMPDIR}/app-prepared.json"
+          node --input-type=module <<'JS'
+          import { writeFile } from 'node:fs/promises';
+          import { prepareRestoreApp, entferneRestoreApp } from './scripts/restore-app-orchestrator.mjs';
+          let prepared;
+          try {
+            prepared = await prepareRestoreApp();
+            await writeFile(process.env.RESTORE_APP_PREPARED_FILE, JSON.stringify(prepared), { mode: 0o600 });
+            console.log('Isolierte Anwendung ohne Backupdaten vorbereitet.');
+          } catch (error) {
+            entferneRestoreApp(prepared);
+            const diagnostic = /^App-Vorbereitung fehlgeschlagen\. Phase: (IMAGE_PULL|IMAGE_CHECK|BUILD_CONTEXT|BUILD|IMAGE_ID); Klasse: (VERTRAG|ZEITLIMIT|MODULE_MISSING|TYPESCRIPT|NETWORK|UNBEKANNT)\.$/.exec(error instanceof Error ? error.message : '');
+            console.error(diagnostic ? diagnostic[0] : 'Isolierte Anwendungsvorbereitung fehlgeschlagen. Keine privaten Diagnosen veröffentlicht.');
+            process.exitCode = 1;
+          }
+          JS
       - name: Vorhandenes B2-Backup prüfen und isoliert wiederherstellen
         env:
           BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
@@ -50,10 +77,12 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_KEY }}
           BACKUP_RESTIC_PASSWORD: ${{ secrets.BACKUP_RESTIC_PASSWORD }}
+          BACKUP_APPLICATION_RESTORE: ${{ inputs.verify_application }}
         run: |
           set -euo pipefail
           umask 077
           export TMPDIR="${RUNNER_TEMP}/fcb-restore-private"
+          export RESTORE_APP_PREPARED_FILE="${TMPDIR}/app-prepared.json"
           export RESTIC_PASSWORD_FILE="${TMPDIR}/resticpass" RESTIC_CACHE_DIR="${TMPDIR}/cache"
           export RESTIC_REPOSITORY="s3:${BACKUP_S3_ENDPOINT}/${BACKUP_S3_BUCKET}/fcb-website"
           export AWS_DEFAULT_REGION="${BACKUP_S3_ENDPOINT#https://s3.}"
@@ -125,4 +154,18 @@ jobs:
           node scripts/restore-isolated.mjs "$(cat "${TMPDIR}/payload-path")"
       - name: Private Dateien stets entfernen
         if: ${{ always() }}
-        run: rm -rf -- "${RUNNER_TEMP}/fcb-restore-private"
+        run: |
+          set -euo pipefail
+          export RESTORE_APP_PREPARED_FILE="${RUNNER_TEMP}/fcb-restore-private/app-prepared.json"
+          cleanup_status=0
+          if [[ -f "${RESTORE_APP_PREPARED_FILE}" ]]; then
+            if ! node --input-type=module <<'JS'
+          import { readFile } from 'node:fs/promises';
+          import { entferneRestoreApp } from './scripts/restore-app-orchestrator.mjs';
+          try { entferneRestoreApp(JSON.parse(await readFile(process.env.RESTORE_APP_PREPARED_FILE, 'utf8'))); }
+          catch { console.error('Lokales App-Image konnte nicht bereinigt werden.'); process.exitCode = 1; }
+          JS
+            then cleanup_status=1; fi
+          fi
+          rm -rf -- "${RUNNER_TEMP}/fcb-restore-private"
+          exit "${cleanup_status}"
