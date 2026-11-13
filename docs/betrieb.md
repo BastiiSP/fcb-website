@@ -16,7 +16,7 @@ eine Migrationshistorie ist keine Datensicherung.
 | Öffentliche HTTP-Prüfung | Beide Domains liefern HTTP 200 und den richtigen Tenant | Erfolgreicher manueller Main-Lauf `43461402737`, geprüft am 13.11.2026 um 16:18:38 UTC |
 | GitHub-Fehlermail | Allgemeine und gezielte Verfügbarkeits-Alarmmail an Basti zugestellt | Schema-Replay am 13.11.2026 um 09:02:09 UTC, Commit `964787d`; Verfügbarkeits-Alarmprobe um 09:07:12 UTC, Commit `3e8d9dc`, Lauf `43398573784` |
 | Vercel-Anomaliealarme | Observability Plus nicht aktiviert, kein Vercel-Alarm nachgewiesen | Kostenpflichtige Erweiterung außerhalb des Auftrags; Sentry wird separat geprüft |
-| Sentry | Kostenloses EU-Projekt, Preview-DSN, echte Client- und Server-Testereignisse sowie empfangene Alarmmails belegt | Zusätzliche Geo-Filterregel gespeichert; SDK-Korrektur gegen Relay-IP-Ableitung und erneute Vorschauabnahme noch offen |
+| Sentry | Kostenloses EU-Projekt, echte Client- und Server-Testereignisse sowie empfangene Regression-Alarmmails belegt | SDK- und Provider-Korrektur in geschützter Vorschau geprüft: keine gespeicherten Geo-Werte; Produktionsübernahme separat zu prüfen |
 
 Supabase empfiehlt im Free-Tarif eigene Exporte außerhalb des Projekts. Eine
 Datenbanksicherung umfasst nur Storage-Metadaten, nicht die gespeicherten
@@ -332,7 +332,7 @@ diese PR-Probe belegt. Adressen und Nachrichteninhalte werden nicht im
 | --- | --- | --- |
 | Ausfall beider Domains | Externer HTTP-Monitor, etwa UptimeRobot Free | Konto, bestätigte E-Mail; zum Prüfzeitpunkt kostenlose HTTP-Prüfung alle 5 Minuten laut Anbieter |
 | HTTP-Prüfung aus diesem Repository | Echter PR-Lauf, manueller Main-Lauf und gezielte PR-Alarmmail erfolgreich geprüft | Zeitplanbetrieb und dessen Benachrichtigungszuordnung noch offen |
-| Client- und Serverfehler | Sentry Developer, Preview-DSN und separate geschützte Prüfvorschau | Client- und Serverereignis sowie beide Alarmmails nachgewiesen; Geo-Korrektur und erneute Datenschutzabnahme offen, Produktions-DSN nicht gesetzt |
+| Client- und Serverfehler | Sentry Developer und separate geschützte Prüfvorschau | Beide Fehlerwege, Regressionserkennung und Alarmmails nachgewiesen; Geo-Retest ohne gespeicherte Geo-Werte erfolgreich, Produktionsbetrieb separat zu prüfen |
 | Vercel-Anomaliealarme | Nicht vorgesehen | Kostenpflichtige Erweiterung und damit außerhalb des beauftragten Umfangs |
 
 Sentry wurde in einer EU-Organisation mit dem Projekt `fcb-website`
@@ -349,17 +349,22 @@ geprüft. `NEXT_PUBLIC_SENTRY_DSN` ist ausschließlich für Vercel Preview geset
 die Produktionskonfiguration bleibt aus.
 
 Eine separate, durch Vercel-SSO geschützte Prüfvorschau hat echte synthetische
-Client- und Serverfehler an Sentry übertragen. Die zugehörige Server-Alarmmail
-ist am 13.11.2026 um 16:12:24 UTC und die Client-Alarmmail um 16:17:59 UTC im
-Empfängerpostfach nachgewiesen. Dies belegt beide Fehlerwege und die Zustellung,
-noch keine Produktionsüberwachung.
+Client- und Serverfehler an Sentry übertragen. Nach der IP-Korrektur wurden die
+zuvor als gelöst markierten Testissues erneut ausgelöst und als Regressionen
+erkannt. Die zugehörigen Alarmmails sind am 13.11.2026 für den Client um
+16:28:13 UTC und für den Server um 16:28:17 UTC im Empfängerpostfach nachgewiesen.
+Dies belegt beide Fehlerwege, Regressionserkennung und Zustellung in der
+Vorschau, noch keine Produktionsüberwachung.
 
-Bei der Ereignisprüfung fiel zusätzliche Geo-Ableitung durch den Relay-Dienst
-auf. Die Provider-Regel zum vollständigen Entfernen von `user.geo` ist gespeichert
-und erneut geprüft. Das SDK setzt zusätzlich `sdk.settings.infer_ip=never`.
-Die Korrektur wird in Privacy- und echten SDK-Envelope-Tests geprüft; ein neuer
-Vorschaufehler muss anschließend bestätigen, dass Relay keine Geo-Daten ergänzt.
-Diese erneute Datenschutzabnahme bleibt vor dem Merge erforderlich.
+Die erneute JSON-Prüfung beider Ereignisse bestätigt
+`sdk.settings.infer_ip=never`. `user` enthält nur Geo-Schlüssel, deren sämtliche
+Werte `null` sind; gespeicherte Geo-Werte fehlen, `_meta` weist Redaction aus.
+`request` und `extra` sind leer, Breadcrumbs fehlen, `contexts` enthält nur den
+beim Ingest ergänzten Trace-Kontext. Die Provider-Regel für `user.geo` ist
+gespeichert und geprüft. Ältere synthetische Testereignisse enthalten weiterhin
+historische Geo-Werte und wurden nicht gelöscht. Dies waren keine
+Produktionsereignisse. Privacy- und echte SDK-Envelope-Tests prüfen zusätzlich
+den festen Relay-Schalter.
 
 Der vorgesehene SDK-Umfang sind unbehandelte Fehler in Browser, Server und Edge.
 Bereits abgefangene BFV-, HTTP- und Supabase-Fehler werden dadurch nicht umfassend
@@ -442,10 +447,11 @@ Die Sentry-Einführung mit SDK `11.12.0` liegt in
 eine echte SDK-Probe mit In-Memory-Transport prüfen das Filtern synthetischer
 vertraulicher Inhalte und Anhänge sowie den festen Relay-Schalter
 `infer_ip=never`. Die frischen Pflichtprüfungen müssen am jeweiligen PR-Head
-erfolgreich sein. Echte Vorschauereignisse und Alarmmails sind separat belegt;
-die Geo-Korrektur braucht noch eine erneute Vorschauabnahme. Die Änderung ist
-noch nicht gemergt. Temporäre Fehlerknöpfe und Testroute liegen ausschließlich
-auf einem separaten Prüfbranch und werden nicht nach `main` übernommen.
+erfolgreich sein. Echte Vorschauereignisse, Regression-Alarmmails und die erneute
+Datenschutzabnahme ohne gespeicherte Geo-Werte sind separat belegt. Die
+Produktionsübernahme ist gesondert zu prüfen. Temporäre Fehlerknöpfe und
+Testroute liegen ausschließlich auf einem separaten Prüfbranch und werden nicht
+nach `main` übernommen.
 
 Der erfolgreiche
 [Auditvergleich](https://github.com/BastiiSP/fcb-website/actions/runs/43414322205)
