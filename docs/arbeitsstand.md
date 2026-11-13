@@ -10,8 +10,11 @@ Detailnachweise und Prüfgrenzen stehen in den verlinkten Themenquellen.
   [Entwicklungsprozess](entwicklungsprozess.md) und
   [Migrationsabgleich](supabase-migration-abgleich.md).
 - Beide Produktionsdomains sind erreichbar. UptimeRobot überwacht beide alle
-  fünf Minuten mit belegten Down-/Up-E-Mails; Sentry ist im EU-Projekt produktiv,
-  Client-/Serverfehler und Regression-Alarme sind geprüft. Die maßgebliche
+  fünf Minuten mit belegten Down-/Up-E-Mails. Zusätzlich sind zwei echte geplante
+  GitHub-HTTP-Läufe erfolgreich, zuletzt 13.11.2026 um 22:43 UTC. Sentry ist
+  im EU-Projekt produktiv,
+  Client-/Serverfehler und Regression-Alarme sind geprüft; DPA 5.1.0 wurde am
+  13.11.2026 mit Betreiberfreigabe angenommen. Die maßgebliche
   [Diensttabelle und Betriebsnachweise](betrieb.md#eingesetzte-dienste) bündeln
   Aufgaben, kostenlosen Rahmen und Grenzen.
 - Der reguläre Gesamtlauf `43486494378` belegt aktuellen Export, verschlüsselten
@@ -20,17 +23,23 @@ Detailnachweise und Prüfgrenzen stehen in den verlinkten Themenquellen.
   `43483076155` prüft
   Storage-/Auth-API, Rollen-/Tenant-Fälle und zwei Browserfälle erfolgreich.
 - `BACKUP_ENABLED=true` und Kostenflag sind zurückgelesen. Täglicher Zeitplan
-  03:27 UTC ist aktiviert; erster tatsächlicher Cron-Lauf noch nicht beobachtet.
+  03:27 UTC ist aktiviert; erstes Fenster danach am 14.11.2026 um 03:27 UTC
+  (04:27 Uhr Berlin), bei Prüfung am Vorabend noch nicht erreicht.
   Monatsprobe umfasst Datenbank/Dateien, App-Probe bleibt separat manuell.
+- Sicherheitswartung im aktuellen Arbeitsstand: Next.js `16.4.5`, `sharp`
+  `0.35.5`; vor PR-Einreichung lokale Pflichtprüfungen und Tenant-E2E erfolgreich.
+  CI- und Auslieferungsnachweise in [Sicherheits-PR #22](https://github.com/BastiiSP/fcb-website/pull/22); Auditrestfunde
+  und genaue Grenzen: [Betrieb](betrieb.md#sicherheitswartung).
 - Rollen-, Tenant- und UI-Verträge: [AGENTS.md](../AGENTS.md), Datenbankregeln:
   [supabase/AGENTS.md](../supabase/AGENTS.md).
 
 ## Nächster Schritt und Prüfgrenze
 
-- Sentry-Auftragsverarbeitungsvertrag durch den Betreiber prüfen und annehmen.
 - Ersten geplanten Sicherungslauf und dessen E-Mail-Empfänger kontrollieren.
   Repository nicht erneut initialisieren. Weiteres Wachstum unter den
-  bestehenden kostenlosen Caps beobachten; automatisches Pruning fehlt.
+  bestehenden kostenlosen Caps beobachten; automatisches Pruning fehlt. Das
+  [Aufbewahrungskonzept](betrieb.md#aufbewahrung-vorbereiten) ist nur vorbereitet;
+  Löschung und Lifecycle-Änderungen sind noch nicht freigegeben.
 - Konkrete Browser-Prüfschritte für beide Domains, Themes, Monitoring und Restore:
   [Betrieb](betrieb.md#manuelle-prüfung). Die App-Probe belegt ihre benannten Fälle,
   keine pauschale Abnahme aller Abläufe oder zugesicherte RPO/RTO.
@@ -46,15 +55,3 @@ Historische Dokumente, keine automatisch freigegebene Aufgabenliste:
 - [docs/superpowers/plans/2026-06-07-consent-verwaltung.md](<../docs/superpowers/plans/2026-06-07-consent-verwaltung.md>)
 - [docs/superpowers/plans/2026-06-07-design-runde-2-finalisierung.md](<../docs/superpowers/plans/2026-06-07-design-runde-2-finalisierung.md>)
 - [docs/superpowers/plans/2026-06-07-mobile-header-footer-fixes.md](<../docs/superpowers/plans/2026-06-07-mobile-header-footer-fixes.md>)
-- [docs/superpowers/plans/2026-06-15-auth-pages-design-overhaul.md](<../docs/superpowers/plans/2026-06-15-auth-pages-design-overhaul.md>)
-- [docs/superpowers/plans/2026-06-15-impressum-datenschutz.md](<../docs/superpowers/plans/2026-06-15-impressum-datenschutz.md>)
-- [docs/superpowers/plans/2026-06-15-supabase-keepalive.md](<../docs/superpowers/plans/2026-06-15-supabase-keepalive.md>)
-- [docs/superpowers/plans/2026-06-15-supabase-security-advisors.md](<../docs/superpowers/plans/2026-06-15-supabase-security-advisors.md>)
-- [docs/superpowers/plans/2026-06-17-pitch-auth-apply.md](<../docs/superpowers/plans/2026-06-17-pitch-auth-apply.md>)
-- [docs/superpowers/plans/2026-06-18-design-system-dual-theme.md](<../docs/superpowers/plans/2026-06-18-design-system-dual-theme.md>)
-- [docs/superpowers/plans/2026-06-19-dual-theme-refinements.md](<../docs/superpowers/plans/2026-06-19-dual-theme-refinements.md>)
-- [docs/superpowers/plans/2026-06-27-vorstand-buchungsuebersicht.md](<../docs/superpowers/plans/2026-06-27-vorstand-buchungsuebersicht.md>)
-- [docs/superpowers/specs/2026-06-15-supabase-security-advisors-design.md](<../docs/superpowers/specs/2026-06-15-supabase-security-advisors-design.md>)
-- [docs/superpowers/specs/2026-06-18-design-system-dual-theme-design.md](<../docs/superpowers/specs/2026-06-18-design-system-dual-theme-design.md>)
-- [docs/superpowers/specs/2026-07-29-jfg-domain-multi-tenant-design.md](<../docs/superpowers/specs/2026-07-29-jfg-domain-multi-tenant-design.md>)
-
