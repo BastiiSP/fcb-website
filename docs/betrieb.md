@@ -327,7 +327,7 @@ Im aktuellen Arbeitsstand sind Next.js auf `16.4.5` und `sharp` auf `0.35.5`
 aktualisiert. Auf diesem Update-Branch bestanden lokal Lint (eine bestehende
 Warnung), TypeScript einschließlich Typegen, 39 Unit-Tests, Produktionsbuild
 und 19 Tenant-/Datenschutz-E2E-Fälle. Vor PR-Einreichung lokal geprüft;
-CI- und Auslieferungsnachweise werden im zugehörigen Sicherheits-PR geführt. Ohne produktive Umgebungswerte waren
+CI- und Auslieferungsnachweise werden in [Sicherheits-PR #22](https://github.com/BastiiSP/fcb-website/pull/22) geführt. Ohne produktive Umgebungswerte waren
 Instagram und Sportheim-Belegung nicht abrufbar; deren Integrationen sind
 mit diesem Lauf nicht bestätigt. Die lokale Prüfung belegt keine
 Produktionsauslieferung.

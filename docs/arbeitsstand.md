@@ -27,7 +27,7 @@ Detailnachweise und Prüfgrenzen stehen in den verlinkten Themenquellen.
   Monatsprobe umfasst Datenbank/Dateien, App-Probe bleibt separat manuell.
 - Sicherheitswartung im aktuellen Arbeitsstand: Next.js `16.4.5`, `sharp`
   `0.35.5`; vor PR-Einreichung lokale Pflichtprüfungen und Tenant-E2E erfolgreich.
-  CI- und Auslieferungsnachweise im zugehörigen Sicherheits-PR; Auditrestfunde
+  CI- und Auslieferungsnachweise in [Sicherheits-PR #22](https://github.com/BastiiSP/fcb-website/pull/22); Auditrestfunde
   und genaue Grenzen: [Betrieb](betrieb.md#sicherheitswartung).
 - Rollen-, Tenant- und UI-Verträge: [AGENTS.md](../AGENTS.md), Datenbankregeln:
   [supabase/AGENTS.md](../supabase/AGENTS.md).
