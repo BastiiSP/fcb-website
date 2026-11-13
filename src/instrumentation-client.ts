@@ -7,8 +7,11 @@ Sentry.init({
   tracesSampleRate: 0,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 0,
-  enableLogs: false,
-  integrations: (integrations) => integrations.filter((integration) => integration.name !== "BrowserSession"),
+  traceLifecycle: "static",
+  beforeSendTransaction: () => null,
+  beforeSendLog: () => null,
+  beforeSendMetric: () => null,
+  integrations: (integrations) => integrations.filter((integration) => integration.name !== "BrowserSession" && !integration.name.includes("Logging")),
   sendClientReports: false,
   maxBreadcrumbs: 0,
   beforeSend: (event) => bereinigeSentryEvent(event, {

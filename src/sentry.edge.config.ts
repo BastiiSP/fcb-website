@@ -5,7 +5,11 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   dataCollection: sentryDatenminimierung,
   tracesSampleRate: 0,
-  enableLogs: false,
+  integrations: (integrations) => integrations.filter((integration) => !integration.name.includes("Logging")),
+  traceLifecycle: "static",
+  beforeSendTransaction: () => null,
+  beforeSendLog: () => null,
+  beforeSendMetric: () => null,
   sendClientReports: false,
   maxBreadcrumbs: 0,
   beforeSend: (event) => bereinigeSentryEvent(event, {
