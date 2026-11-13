@@ -35,14 +35,16 @@ Der lokale Entwurf `20260812120000_prevent_role_escalation.sql` wurde nach `supa
 - Der Storage-Bucket `avatars` ist öffentlich, vom Typ `STANDARD` und hat keine gesetzte Größen- oder MIME-Einschränkung. Seine Objektinhalte sind nicht Bestandteil dieses Abgleichs.
 - Die produktive Datenbank hat explizite DML-Rechte für `authenticated` auf `mitglieder`. In der historischen Erstellungsmigration fehlen diese GRANTs.
 
-## Getrennt zu schließende Reproduzierbarkeitslücken
+## Reproduzierbarkeit und verbleibende Grenzen
 
 Die passende Historie allein beweist keinen vollständigen Neuaufbau. Der erste GitHub-Lauf hat alle 26 historischen Migrationen erfolgreich auf einer frischen Supabase-Datenbank ausgeführt. Der anschließende Vertragstest zeigte zu breite geerbte anon-DML-Rechte sowie den fehlenden Bucket; außerdem wurde ein Typvergleich im Test korrigiert.
 
 1. Der Bucket `avatars` wird von keiner historischen Migration angelegt. Die additive Baseline legt ihn ausschließlich bei Fehlen an. Bei abweichender vorhandener Konfiguration bricht sie ab. Bestehende Objekte und Einstellungen werden nicht ersetzt.
 2. Die additive Baseline gleicht ausschließlich Tabellen-DML und entsprechende postgres-Standardrechte auf den aus Produktion gelesenen Vertrag ab. Sie enthält auch die zuvor fehlenden ausdrücklichen `authenticated`-GRANTs für `mitglieder`. RLS, Rollenregeln, Trigger, Sequenzrechte und sonstige Tabellenrechte bleiben unangetastet. Die 26 historischen Dateien bleiben unverändert.
 3. Der Avatar-URL-Constraint enthält die produktive Supabase-Domain. Ein isoliertes Projekt benötigt eine bewusst überprüfte Behandlung dieses Herkunftsvertrags, damit Profilbild-Uploads nicht unbemerkt am Constraint scheitern. Die Rekonstruktion verändert diese Sicherheitsregel nicht.
-4. Der erneute isolierte Replay einschließlich der additiven Baseline und aller Vertragsprüfungen steht zum Zeitpunkt dieses Dokuments noch aus. Der erste Lauf verwendete PostgreSQL 17.11.0.018, Produktion meldet 17.6. Damit wird dieselbe Hauptversion mit unterschiedlichem Wartungsstand geprüft. Lokal waren Docker und die Supabase-CLI nicht vorhanden; der Lauf erfolgt in GitHub Actions ohne Produktionszugangsdaten.
+4. Der erneute isolierte Replay einschließlich der additiven Baseline war erfolgreich: Alle 27 Migrationen wurden auf einer frischen Datenbank ausgeführt, anschließend bestanden alle 130 pgTAP-Prüfungen. Die Tests prüfen Tabellen und RLS, aktive Schutztrigger, Tabellen-DML und RPC-Rechte, die Anlage des öffentlichen Buckets sowie Registrierung, Rollenvergabe und Vereinstrennung mit synthetischen Konten. Die Testtransaktion wird zurückgerollt. Verifiziert wurde PostgreSQL 17.11.0.018; Produktion meldet 17.6. Damit wurde dieselbe Hauptversion mit unterschiedlichem Wartungsstand geprüft. Der Lauf erfolgte in GitHub Actions ohne Produktionszugangsdaten.
+
+Nachweis: [Schema-Replay 43398661276](https://github.com/BastiiSP/fcb-website/actions/runs/43398661276), Commit `9923307607d15b16fdb561a293eb67e7f86fdf73`, Ergebnis `Files=1, Tests=130`, `Result: PASS`. Auch die reguläre CI desselben Commits war erfolgreich. Das ist ein tatsächlicher lokaler Datenbank-Neuaufbau im GitHub-Runner. Ein deaktivierter gehosteter Supabase-Preview-Branch bleibt davon getrennt und wird nicht als erfolgreicher Hosted-Preview-Test ausgegeben. Ein vollständiger Restore von Produktionsdaten und Storage-Dateien wurde damit ebenfalls nicht getestet.
 
 ## Nachweis der produktiven Baseline-Anwendung
 
