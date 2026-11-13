@@ -1,5 +1,4 @@
-# Einmaliger Hilfsworkflow ohne Zugang zu Projekt-Secrets.
-name: Sentry Lockfile einmalig erzeugen
+name: Auditvergleich Sentry gegen main
 
 on:
   push:
@@ -9,51 +8,55 @@ permissions:
   contents: read
 
 jobs:
-  lockfile:
-    name: npm Lockfile für Sentry 11.12.0
+  audit:
+    name: Öffentliche Abhängigkeiten vergleichen
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - name: Repository auschecken
+      - name: Baseline auschecken
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: c7534a07134093b8dfc076c769ceb5bd39060269
+          path: baseline
+          persist-credentials: false
+      - name: Sentry-Paketstand auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 2217be80885df92d1e82fdb3a53257e3ecb3c11b
+          path: sentry
           persist-credentials: false
       - name: Node.js einrichten
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 22
-      - name: Lockfile ohne Installationsskripte erzeugen
-        run: npm install --package-lock-only --ignore-scripts --save-exact --no-audit --no-fund @sentry/nextjs@11.12.0
-      - name: Lockfile-Konsistenz mit echter Installation prüfen
-        run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          npm ls @sentry/nextjs
-          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.dependencies['@sentry/nextjs']!=='11.12.0'||l.packages['node_modules/@sentry/nextjs'].version!=='11.12.0') process.exit(1)"
-      - name: Öffentliche Paketdateien zur geprüften Übernahme sichern
-        run: |
-          mkdir sentry-lockfile
-          cp package.json package-lock.json sentry-lockfile/
-          cd sentry-lockfile
-          sha256sum package.json package-lock.json > SHA256SUMS
-      - name: Unveränderliches Ergebnisartefakt hochladen
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: sentry-lockfile-11.12.0
-          path: sentry-lockfile/
-          retention-days: 1
-          if-no-files-found: error
-
-      - name: Öffentliche Paketdateien begrenzt für Offline-Übernahme ausgeben
+      - name: Advisory-Vergleich ohne Paketänderungen ausgeben
         run: |
           node <<'NODE'
-          const fs = require('node:fs');
-          const zlib = require('node:zlib');
-          const crypto = require('node:crypto');
-          const data = {packageJson: fs.readFileSync('package.json', 'utf8'), packageLock: fs.readFileSync('package-lock.json', 'utf8')};
-          const compressed = zlib.gzipSync(Buffer.from(JSON.stringify(data)));
-          const encoded = compressed.toString('base64');
-          if (encoded.length > 200000) throw new Error('Paketdateien überschreiten das genehmigte Loglimit.');
-          console.log('FCB_SENTRY_LOCKFILE_V1_SHA256 ' + crypto.createHash('sha256').update(compressed).digest('hex'));
-          for (let i = 0; i < encoded.length; i += 7000) console.log('FCB_SENTRY_LOCKFILE_V1_PART ' + String(i / 7000).padStart(5, '0') + ' ' + encoded.slice(i, i + 7000));
-          console.log('FCB_SENTRY_LOCKFILE_V1_END');
+          const { spawnSync } = require('node:child_process');
+          function scan(cwd, production) {
+            const args = ['audit', '--json', '--ignore-scripts', '--no-fund', ...(production ? ['--omit=dev'] : [])];
+            const result = spawnSync('npm', args, { cwd, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+            if (![0, 1].includes(result.status)) throw new Error('Auditabfrage fehlgeschlagen.');
+            const data = JSON.parse(result.stdout);
+            if (data.error || !data.vulnerabilities) throw new Error('Auditdaten unvollständig.');
+            return Object.fromEntries(Object.entries(data.vulnerabilities).map(([name, v]) => [name, {
+              package: name, severity: v.severity,
+              advisoryUrls: [...new Set(v.via.filter(x => typeof x === 'object').map(x => x.url))].sort(),
+            }]));
+          }
+          const report = [];
+          for (const production of [false, true]) {
+            const baseline = scan('baseline', production);
+            const sentry = scan('sentry', production);
+            const scope = production ? 'production' : 'all';
+            for (const name of Object.keys(sentry).sort()) {
+              const current = sentry[name], before = baseline[name];
+              report.push({scope, ...current, baselineSeverity: before?.severity ?? null,
+                introduced: !before || current.advisoryUrls.some(url => !before.advisoryUrls.includes(url)),
+                baselineAdvisoryUrls: before?.advisoryUrls ?? []});
+            }
+            for (const name of Object.keys(baseline).sort()) if (!sentry[name])
+              report.push({scope, ...baseline[name], absentInSentry: true});
+          }
+          console.log('FCB_AUDIT_COMPARISON_V1 ' + JSON.stringify(report));
           NODE
