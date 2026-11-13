@@ -1,0 +1,35 @@
+name: PostgreSQL TLS-Prüfung ohne Anmeldung
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/backup-tls-probe.yml'
+      - '.github/workflows/backup.yml'
+      - 'scripts/backup-tls-probe.sh'
+      - 'scripts/backup-pg-tool.sh'
+      - 'scripts/backup-pg-tool.test.sh'
+      - 'scripts/certificates/supabase-prod-ca-2021.crt'
+
+permissions:
+  contents: read
+
+jobs:
+  tls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: PostgreSQL-Image laden
+        run: |
+          set -euo pipefail
+          docker pull supabase/postgres:17.6.1.063 >/dev/null
+          image="$(docker image inspect --format '{{index .RepoDigests 0}}' supabase/postgres:17.6.1.063)"
+          [[ "${image}" =~ ^supabase/postgres@sha256:[a-f0-9]{64}$ ]]
+          echo "BACKUP_POSTGRES_IMAGE=${image}" >> "${GITHUB_ENV}"
+      - name: TLS ohne Anmeldung prüfen
+        run: bash scripts/backup-tls-probe.sh
+      - name: CA-Mount und Offline-Restore prüfen
+        run: bash scripts/backup-pg-tool.test.sh

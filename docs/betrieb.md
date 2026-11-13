@@ -129,8 +129,12 @@ Main-Lauf, nicht für den Zeitplan.
 Der jüngste [Sicherungslauf 43470959640](https://github.com/BastiiSP/fcb-website/actions/runs/43470959640)
 auf `main` (`8793e66`) scheiterte ebenfalls vor dem Exportabschluss. Die begrenzte
 Diagnose aus [PR #12](https://github.com/BastiiSP/fcb-website/pull/12) meldet
-`SNAPSHOT` und `TLS_SONSTIG`. Die genaue TLS-Ursache ist noch nicht behoben; die
-Zertifikatsprüfung bleibt aktiv. Ein vollständiger Snapshot und ein erfolgreicher B2-Download-Restore sind
+`SNAPSHOT` und `TLS_SONSTIG`. Die anschließende anmeldungsfreie
+[TLS-Probe 43472243295](https://github.com/BastiiSP/fcb-website/actions/runs/43472243295)
+bestätigt die Eingrenzung: System-CAs scheitern an der Zertifikatsprüfung, mit der
+offiziellen Supabase-CA werden TLS und Hostname bestätigt. Die Produktivkorrektur
+verwendet diese lokal versionierte CA mit festem SHA-256; `verify-full` bleibt
+aktiv. Ein vollständiger Snapshot und ein erfolgreicher B2-Download-Restore sind
 nicht nachgewiesen. Das restic-Repository wurde bereits initialisiert. Bei
 weiteren Läufen ausschließlich `initialize_repository=false` verwenden; die
 Initialisierung nicht wiederholen. `BACKUP_ENABLED` bleibt aus.
@@ -207,8 +211,8 @@ Backup- und Restore-Schritte wurden übersprungen. Es wurden keine
 Produktionsdaten exportiert oder hochgeladen. Dies belegt den B2-Zugang und die
 Budgetprüfung, noch keine Sicherung oder Wiederherstellung.
 
-`BACKUP_ENABLED` bleibt aus. Den nächsten manuellen Modus `backup` erst nach
-Korrektur der TLS-Ursache mit `initialize_repository=false` und
+`BACKUP_ENABLED` bleibt aus. Den nächsten manuellen Modus `backup` nach Übernahme
+der geprüften TLS-Korrektur mit `initialize_repository=false` und
 `verify_restore=true` ausführen. Die einmalige Initialisierung ist abgeschlossen;
 sie darf nicht erneut gestartet werden.
 
@@ -230,7 +234,12 @@ Passwörter als Katalogmetadaten aufgenommen. Die tatsächliche PostgreSQL-Image
 Digest wird aufgezeichnet und für Export und isolierten Restore verwendet.
 
 Der Datenbankzugang wird mit `default_transaction_read_only=on` verwendet.
-GitHub Actions prüft das TLS-Serverzertifikat mit `verify-full` und System-CAs.
+GitHub Actions prüft das TLS-Serverzertifikat und den Hostnamen mit `verify-full`
+und der offiziellen Supabase-CA. Das versionierte Original unter
+`scripts/certificates/supabase-prod-ca-2021.crt` hat den fest geprüften SHA-256
+`700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7`.
+Die CA wird schreibgeschützt in den Exportcontainer eingebunden; eine fehlende
+oder abweichende Datei stoppt den Lauf vor dem Datenbankzugriff.
 Der Storage-Bestand wird vor dem Dump und nach den Downloads verglichen.
 Abweichungen in Bucket-Einstellungen, Objektidentität, Metadaten oder Dateigrößen
 stoppen die Sicherung vor dem Upload. DB und Storage bilden dennoch keinen
@@ -508,6 +517,12 @@ Produktionsauslieferung und beide Tenant-Startseiten sind ebenfalls geprüft.
 Temporäre Fehlerknöpfe und Testroute liegen ausschließlich auf einem separaten
 Prüfbranch und wurden nicht nach `main` übernommen.
 
+Die Datenschutzergänzung aus [PR #13](https://github.com/BastiiSP/fcb-website/pull/13)
+ist als `7258ff1` produktiv. Beide `/datenschutz`-Seiten sind mit Stand November
+2026, richtigem Verantwortlichen und den drei Betriebsabschnitten geprüft.
+Sportheim erscheint nur bei FCB; beide Themes sind lesbar und wechseln ohne
+horizontalen Überlauf. Alle fünf Main-Pflichtchecks waren erfolgreich.
+
 Der erfolgreiche
 [Auditvergleich](https://github.com/BastiiSP/fcb-website/actions/runs/43414322205)
 meldet für `main` und den Sentry-Stand dieselben 19 Paketfunde: 11 moderate,
@@ -524,6 +539,18 @@ Aufgabe.
 
 ## Manuelle Prüfung
 
+- `https://www.fcbuku.de/datenschutz` öffnen → Stand November 2026 und Abschnitte
+  Sentry, UptimeRobot und geplante Sicherungskopien prüfen → FCB ist als
+  Verantwortlicher angegeben, Sportheim-Anfrage ist enthalten; Fehlermerkmale:
+  JFG-Verantwortlicher, fehlender Abschnitt oder behauptete fertige Sicherung.
+- `https://www.jfg-kunstadt-obermain.de/datenschutz` öffnen → dieselben
+  Betriebsabschnitte prüfen → JFG ist als Verantwortlicher angegeben,
+  Sportheim-Anfrage fehlt; Fehlermerkmale: FCB-Verantwortlicher oder
+  Sportheim-Formularabschnitt auf der JFG-Seite.
+- Auf beiden Datenschutzseiten im Footer jeweils helles und dunkles Theme
+  einstellen und Quellenlinks per Tab fokussieren → Text bleibt lesbar und
+  Fokus sichtbar, Links öffnen die richtigen Quellen; Fehlermerkmale:
+  Kontrastverlust, abgeschnittener Text, fehlender Fokus oder defekter Link.
 - Beide Produktionsdomains → Startseite öffnen → richtige Marke und vollständige
   Darstellung; Fehlermerkmale: 5xx, Timeout, falsches Wappen oder falscher Tenant.
 - Monitoring-Dienst → beide Monitorziele und E-Mail-Empfänger prüfen → aktuelle

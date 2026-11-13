@@ -89,7 +89,7 @@ jobs:
           PGUSER: ${{ secrets.BACKUP_DB_USER }}
           PGDATABASE: postgres
           PGSSLMODE: verify-full
-          PGSSLROOTCERT: system
+          PGSSLROOTCERT: ${{ github.workspace }}/scripts/certificates/supabase-prod-ca-2021.crt
           BACKUP_DB_PASSWORD: ${{ secrets.BACKUP_DB_PASSWORD }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BACKUP_SUPABASE_SERVICE_ROLE_KEY }}
           BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
