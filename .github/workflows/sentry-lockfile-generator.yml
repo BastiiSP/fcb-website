@@ -1,3 +1,4 @@
+# Einmaliger Hilfsworkflow ohne Zugang zu Projekt-Secrets.
 name: Sentry Lockfile einmalig erzeugen
 
 on:
