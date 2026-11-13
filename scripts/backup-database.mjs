@@ -51,7 +51,8 @@ function classify(logText) {
   return "UNBEKANNT";
 }
 try {
-  session.stdin.write("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\n");
+  // pg_get_expr und Katalogdefinitionen hängen vom Suchpfad der Sitzung ab.
+  session.stdin.write("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSET LOCAL search_path = public, extensions;\n");
   const snapshot = await query("SELECT to_json(pg_export_snapshot());");
   requireContract(typeof snapshot === "string" && /^[0-9A-F-]+$/i.test(snapshot));
   stage = "MANIFEST_VERSION";
@@ -74,7 +75,7 @@ try {
   requireContract(/^supabase\/postgres@sha256:[a-f0-9]{64}$/.test(process.env.BACKUP_POSTGRES_IMAGE ?? ""));
   stage = "MANIFEST_KATALOG";
   const catalog = await query(CATALOG_SQL);
-  const manifest = { schemaVersion: 2, createdAt: new Date().toISOString(), projectRef: process.env.BACKUP_PROJECT_REF, serverVersion: version, postgresImage: process.env.BACKUP_POSTGRES_IMAGE, tables, policies, roles, memberships, vaultSecrets, catalog };
+  const manifest = { schemaVersion: 2, createdAt: new Date().toISOString(), projectRef: process.env.BACKUP_PROJECT_REF, metadataSearchPath: ["public", "extensions"], serverVersion: version, postgresImage: process.env.BACKUP_POSTGRES_IMAGE, tables, policies, roles, memberships, vaultSecrets, catalog };
   stage = "MANIFEST_SCHREIBEN";
   await writeFile(path.join(destination, "backup.json"), JSON.stringify(manifest), { mode: 0o600 });
   stage = "DUMP";

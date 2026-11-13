@@ -10,6 +10,7 @@ const script = fileURLToPath(new URL("./backup-database.mjs", import.meta.url));
 const secret = "secret-user-host-password-SQL-person-data";
 const fakePsql = `#!/usr/bin/env node
 let n = 0;
+let searchPathSet = false;
 process.stdin.setEncoding('utf8');
 let buf = '';
 process.stdin.on('data', chunk => {
@@ -18,7 +19,9 @@ process.stdin.on('data', chunk => {
     const end = buf.indexOf('\\n');
     if (end < 0) break;
     const line = buf.slice(0, end); buf = buf.slice(end + 1);
+    if (line === 'SET LOCAL search_path = public, extensions;') searchPathSet = true;
     if (!line.startsWith('SELECT to_jsonb')) continue;
+    if (!searchPathSet) process.exit(1);
     n++;
     if (process.env.FAIL_AT === String(n)) {
       process.stderr.write(process.env.PRIVATE_ERROR + '\\n');

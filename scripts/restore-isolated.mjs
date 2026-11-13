@@ -35,6 +35,41 @@ function classify(text) {
   if (/unsupported version|not supported/i.test(text)) return "KOMPATIBILITAET";
   return "UNBEKANNT";
 }
+function policyDifferences(expected, actual) {
+  const identity = (policy) => JSON.stringify([policy.schemaname, policy.tablename, policy.policyname]);
+  const expectedByIdentity = new Map(expected.map((policy) => [identity(policy), policy]));
+  const actualByIdentity = new Map(actual.map((policy) => [identity(policy), policy]));
+  const fields = ["permissive", "roles", "cmd", "qual", "with_check"];
+  const counts = Object.fromEntries(fields.map((field) => [field, 0]));
+  let roleOrderOnly = 0;
+  let missing = 0;
+  for (const [key, policy] of expectedByIdentity) {
+    const restored = actualByIdentity.get(key);
+    if (!restored) { missing++; continue; }
+    for (const field of fields) {
+      if (canonical(policy[field]) !== canonical(restored[field])) {
+        counts[field]++;
+        if (field === "roles" && Array.isArray(policy.roles) && Array.isArray(restored.roles) && canonical([...policy.roles].sort()) === canonical([...restored.roles].sort())) roleOrderOnly++;
+      }
+    }
+  }
+  // Nur feste Feldnamen und Zähler, niemals Identitäten oder Policy-Inhalte ausgeben.
+  console.error(`Policy-Differenz: erwartet=${expected.length}; wiederhergestellt=${actual.length}; fehlende_Identitaeten=${missing}; policies_nur_Reihenfolge=${onlyOrderDiffers(expected, actual)}; permissive=${counts.permissive}; roles=${counts.roles}; roles_nur_Reihenfolge=${roleOrderOnly}; cmd=${counts.cmd}; qual=${counts.qual}; with_check=${counts.with_check}.`);
+}
+function onlyOrderDiffers(expected, actual) {
+  return Array.isArray(expected) && Array.isArray(actual) && canonical(expected) !== canonical(actual)
+    && canonical(expected.map(canonical).sort()) === canonical(actual.map(canonical).sort());
+}
+function catalogDifferences(expected, actual) {
+  const fields = ["functions", "triggers", "constraints", "grants", "sequences"];
+  const differences = fields.map((field) => {
+    const before = expected[field];
+    const after = actual[field];
+    if (!Array.isArray(before) || !Array.isArray(after)) return `${field}=unbekannt`;
+    return `${field}_erwartet=${before.length},${field}_wiederhergestellt=${after.length},${field}_gleich=${canonical(before) === canonical(after)},${field}_nur_Reihenfolge=${onlyOrderDiffers(before, after)}`;
+  });
+  console.error(`Katalog-Differenz: ${differences.join("; ")}.`);
+}
 function docker(args, input) {
   const result = spawnSync("docker", args, { input, encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 600_000, stdio: ["pipe", "pipe", log.fd] });
   if (result.error?.code === "ETIMEDOUT") failure = "ZEITLIMIT";
@@ -42,10 +77,15 @@ function docker(args, input) {
   return result.stdout.trim();
 }
 function sql(query, database = "isolated_restore") {
-  return docker(["exec", "-i", "-e", `PGPASSWORD=${containerPassword}`, name, "psql", "-XqAt", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose", "-U", "supabase_admin", "-d", database], query);
+  return docker(["exec", "-i", "-e", `PGPASSWORD=${containerPassword}`, name, "psql", "-XqAt", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose", "-U", "supabase_admin", "-d", database], `SET search_path = public, extensions;\n${query}`);
 }
 try {
   contract(manifest.schemaVersion === 2 && /^17\./.test(manifest.serverVersion) && manifest.vaultSecrets === 0 && /^supabase\/postgres@sha256:[a-f0-9]{64}$/.test(manifest.postgresImage ?? ""));
+  // Für ältere FCB-Backups wurde dieser effektive Quellpfad nachträglich geprüft;
+  // das frühere Manifest selbst enthält keinen Suchpfad.
+  contract(manifest.metadataSearchPath === undefined
+    ? manifest.projectRef === "jktvmckqfklfziszfsxf"
+    : canonical(manifest.metadataSearchPath) === canonical(["public", "extensions"]));
   docker(["run", "--detach", "--name", name, "--network", "none", "--memory", "2g", "--cpus", "2", "--mount", `type=bind,source=${destination},target=/backup,readonly`, "-e", `POSTGRES_PASSWORD=${containerPassword}`, manifest.postgresImage]);
   stage = "READY";
   let ready = false;
@@ -79,6 +119,11 @@ try {
   }
   stage = "POLICIES";
   const policies = JSON.parse(sql("SELECT coalesce(json_agg(p ORDER BY schemaname,tablename,policyname),'[]'::json) FROM pg_policies p WHERE schemaname NOT LIKE 'pg_%';"));
+  if (canonical(policies) !== canonical(manifest.policies)) {
+    policyDifferences(manifest.policies, policies);
+    try { catalogDifferences(manifest.catalog, JSON.parse(sql(CATALOG_SQL))); }
+    catch { console.error("Katalog-Diagnose nicht verfügbar."); }
+  }
   contract(canonical(policies) === canonical(manifest.policies));
   stage = "KATALOG";
   contract(canonical(JSON.parse(sql(CATALOG_SQL))) === canonical(manifest.catalog));
