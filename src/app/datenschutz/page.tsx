@@ -20,7 +20,7 @@ export default async function DatenschutzPage() {
   const angaben = RECHTSTEXTE[tenant.id];
 
   return (
-    <RechtstextLayout titel="Datenschutzerklärung" stand="September 2026">
+    <RechtstextLayout titel="Datenschutzerklärung" stand="November 2026">
       <p className="font-inter leading-relaxed text-fcb-text/80">
         Der Schutz deiner persönlichen Daten ist uns wichtig. Nachfolgend
         erklären wir, welche Daten beim Besuch und bei der Nutzung dieser
@@ -63,6 +63,64 @@ export default async function DatenschutzPage() {
         </p>
       </RechtstextSektion>
 
+      <RechtstextSektion titel="Fehlerüberwachung (Sentry)">
+        <p>
+          Um technische Fehler zu erkennen und zu beheben, nutzen wir Sentry
+          von Functional Software, Inc. (USA). Tritt bei der Nutzung ein Fehler
+          auf, kann die WebApp ein Fehlerereignis aus deinem Browser oder von
+          unserem Server an Sentry senden. Dazu gehören insbesondere der
+          Fehlertyp, der Zeitpunkt, die betroffene Laufzeit sowie technische
+          Angaben zur Softwareversion und zur Position des Fehlers im Programm.
+        </p>
+        <p>
+          Wir begrenzen die übermittelten Ereignisdaten: Freitext aus
+          Fehlermeldungen, Seitenadressen, Formulareingaben, Nutzerdaten,
+          Cookies und aufgezeichnete Bedienungsschritte werden aus den
+          Fehlerereignissen entfernt. Sitzungsaufzeichnungen und die
+          Aufzeichnung von Leistungstransaktionen sind deaktiviert. Bei einer
+          direkten Verbindung deines Browsers zu Sentry wird deine IP-Adresse
+          technisch für den Verbindungsaufbau verarbeitet. Die Speicherung der
+          IP-Adresse im Fehlerereignis ist deaktiviert; Standortangaben werden
+          aus dem Ereignis entfernt.
+        </p>
+        <p>
+          Die Fehlerereignisse werden in der EU gespeichert. Da der Anbieter
+          seinen Sitz in den USA hat, kann eine Verarbeitung oder ein Zugriff
+          außerhalb des Europäischen Wirtschaftsraums nicht ausgeschlossen
+          werden. Sentry beschreibt mögliche Schutzmechanismen für solche
+          Übermittlungen in seinen {" "}
+          <a href="https://sentry.io/static/International-Data-Transfers-With-Sentry-2024-01-19-796c33a534512f67748aa9a759fe4ead.pdf" className="text-fcb-accent hover:underline">
+            Informationen zu internationalen Datenübermittlungen
+          </a>.
+          Die Verarbeitung dient unserem berechtigten Interesse an einem
+          sicheren und funktionsfähigen Betrieb (Art. 6 Abs. 1 lit. f DSGVO).
+        </p>
+        <p>
+          Fehlerereignisse stehen je nach dem zum Erfassungszeitpunkt geltenden
+          Tarif 30 bis 90 Tage zur Verfügung. Weitere Informationen findest du in
+          den{" "}
+          <a href="https://docs.sentry.io/security-legal-pii/security/data-retention-periods/" className="text-fcb-accent hover:underline">
+            Angaben von Sentry zur Speicherdauer
+          </a>{" "}
+          und in der{" "}
+          <a href="https://sentry.io/privacy/" className="text-fcb-accent hover:underline">
+            Datenschutzerklärung von Sentry
+          </a>.
+        </p>
+      </RechtstextSektion>
+
+      <RechtstextSektion titel="Überwachung der Erreichbarkeit (UptimeRobot)">
+        <p>
+          Wir nutzen UptimeRobot von UptimeRobot s. r. o., um die
+          Erreichbarkeit unserer Website zu überwachen. Der Dienst ruft unsere
+          öffentlichen Seiten etwa alle fünf Minuten von eigenen Servern ab
+          und meldet uns Ausfälle. Dabei verarbeitet er technische Angaben zur
+          geprüften Website und zur Antwort des Servers. Für diese Prüfung wird
+          kein UptimeRobot-Skript in deinem Browser ausgeführt und dein einzelner
+          Seitenbesuch nicht an UptimeRobot gemeldet.
+        </p>
+      </RechtstextSektion>
+
       <RechtstextSektion titel="Reichweiten- und Performance-Messung (Vercel Analytics & Speed Insights)">
         <p>
           Auf allen Seiten dieser WebApp setzen wir Vercel Analytics und Vercel
@@ -73,18 +131,17 @@ export default async function DatenschutzPage() {
           reinen Hosting-Zugriffsdaten hinausgeht.
         </p>
         <p>
-          Beide Dienste sind bewusst datensparsam ausgelegt: Es werden keine
-          Cookies gesetzt und keine dauerhaften Kennungen gespeichert, mit denen
-          du über mehrere Besuche hinweg wiedererkannt werden könntest. Die
-          erhobenen Nutzungs- und Performance-Daten werden aggregiert und dienen
-          ausschließlich der Analyse und Verbesserung der Website – ein
-          individuelles Nutzerprofil wird nicht gebildet.
+          Vercel Web Analytics verwendet nach Angaben des Anbieters keine
+          Drittanbieter-Cookies, sondern eine aus der eingehenden Anfrage
+          abgeleitete Kennung für die Besuchssitzung. Diese wird laut Vercel
+          nach 24 Stunden verworfen. Die Daten werden für aggregierte Statistiken
+          zur Nutzung und Verbesserung der Website verwendet. Speed Insights
+          erfasst technische Leistungswerte.
         </p>
         <p>
           Die Verarbeitung erfolgt auf Grundlage unseres berechtigten Interesses
           an der Optimierung und Fehlerfreiheit unserer WebApp (Art. 6 Abs. 1
-          lit. f DSGVO). Da keine Cookies zum Einsatz kommen, ist hierfür keine
-          gesonderte Einwilligung nach § 25 TDDDG erforderlich.
+          lit. f DSGVO).
         </p>
       </RechtstextSektion>
 
@@ -105,6 +162,40 @@ export default async function DatenschutzPage() {
           Profil eine Anfrage zum Wechsel der Mannschaft (Beitritt oder Austritt),
           speichern wir zusätzlich die betroffene Mannschaft, den Anfragetyp,
           eine optionale Begründung sowie den Bearbeitungsstatus dieser Anfrage.
+        </p>
+      </RechtstextSektion>
+
+      <RechtstextSektion titel="Geplante Sicherungskopien">
+        <p>
+          Für die Wiederherstellung nach einem Datenverlust bereiten wir
+          verschlüsselte Sicherungskopien der Datenbank und gespeicherter Dateien
+          vor. Als Speicherziel ist ein privater Speicherbereich von Backblaze
+          B2 Cloud Storage der Backblaze, Inc. (USA) in der Region EU Central
+          eingerichtet. Eine zusätzliche Verschlüsselung vor der Übertragung ist
+          vorgesehen. Die Einrichtung der Sicherung ist noch nicht
+          abgeschlossen; eine erfolgreiche Sicherung ist bisher nicht
+          nachgewiesen.
+        </p>
+        <p>
+          Für die Erstellung ist GitHub Actions von GitHub, Inc. (USA)
+          vorgesehen. Bei einem Sicherungslauf liegen die Daten auf dessen
+          kurzlebigem Ausführungsserver vor der Verschlüsselung vorübergehend
+          unverschlüsselt in einem zugriffsbeschränkten Verzeichnis. Dessen
+          Entfernung nach dem Lauf ist vorgesehen; Sicherungsdateien sollen
+          nicht als GitHub-Artefakte veröffentlicht werden.
+        </p>
+        <p>
+          Sicherungskopien können insbesondere Konto-, Mitglieder-, Buchungs-
+          und Profildaten einschließlich Profilbildern enthalten. Die Sicherung
+          dient unserem berechtigten Interesse an der Wiederherstellbarkeit und
+          Sicherheit der WebApp (Art. 6 Abs. 1 lit. f DSGVO). Ein Zugriff aus
+          Staaten außerhalb des Europäischen Wirtschaftsraums kann trotz des
+          europäischen Speicherorts nicht ausgeschlossen werden. Für künftige
+          Sicherungskopien ist bislang keine automatische Löschung eingerichtet.
+          Weitere Informationen enthält die{" "}
+          <a href="https://www.backblaze.com/company/policy/privacy" className="text-fcb-accent hover:underline">
+            Datenschutzerklärung von Backblaze
+          </a>.
         </p>
       </RechtstextSektion>
 
@@ -298,6 +389,9 @@ export default async function DatenschutzPage() {
         <p>
           Du hast das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung
           der Verarbeitung deiner Daten sowie das Recht auf Datenübertragbarkeit.
+          Soweit wir Daten auf Grundlage berechtigter Interessen verarbeiten,
+          kannst du dieser Verarbeitung aus Gründen, die sich aus deiner
+          besonderen Situation ergeben, widersprechen.
           Eine erteilte Einwilligung kannst du jederzeit mit Wirkung für die
           Zukunft widerrufen. Wende dich dazu bitte an{" "}
           <a

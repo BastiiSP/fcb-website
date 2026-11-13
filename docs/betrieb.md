@@ -1,22 +1,36 @@
 # Betrieb, Sicherung und Alarmierung
 
 Stand: 13. November 2026. Dieses Dokument beschreibt belegte Zustände und die noch
-offene Inbetriebnahme. Ein vorbereitetes Skript ist kein laufender Monitor und
-eine Migrationshistorie ist keine Datensicherung.
+offene Sicherungsinbetriebnahme. Ein vorbereitetes Skript ist kein laufender
+Monitor und eine Migrationshistorie ist keine Datensicherung.
+
+## Eingesetzte Dienste
+
+| Dienst | Aufgabe | Aktueller Betrieb und Kostenrahmen |
+| --- | --- | --- |
+| GitHub | Öffentliches Repository, Pull Requests, CI, Schema-Replay und Sicherungsworkflows | `main` geschützt; fünf Pflichtchecks; öffentliche Standardrunner; kein bezahlter Runner. [Prozess und Nachweise](entwicklungsprozess.md) |
+| Vercel | Bereitstellung derselben Anwendung für FCB und JFG | Beide Domains produktiv; kein kostenpflichtiges Observability Plus aktiviert |
+| Supabase | PostgreSQL, Auth und Storage | Free-Projekt; 27 Migrationen abgeglichen. Kostenpflichtiges natives Preview-Branching deaktiviert, kostenloser isolierter Schema-Replay aktiv. [Abgleich](supabase-migration-abgleich.md) |
+| Backblaze B2 | Verschlüsseltes externes Sicherungsziel | EU Central, privat, kein Zahlungsmittel, 0-Dollar-Caps; Repository initialisiert, vollständiger Sicherungs- und Restore-Lauf noch offen |
+| Sentry | Unbehandelte Client-, Server- und Edge-Fehler samt E-Mailalarm | EU-Projekt, Developer-Grundplan mit befristetem Test; SDK produktiv, beide Fehlerwege und Regression-Alarme in geschützter Vorschau belegt; Vertragsannahme offen |
+| UptimeRobot | Externe Erreichbarkeitsprüfung beider Domains | Free, zwei aktive HTTP-Monitore alle fünf Minuten; Down-/Up-E-Mails belegt; Testmonitor pausiert |
+
+Keine zusätzlichen kostenpflichtigen Dienste aktivieren. Die folgenden Abschnitte
+sind die maßgebliche Quelle für Einrichtung, Nachweise und verbleibende Grenzen.
 
 ## Nachgewiesener Ausgangsstand
 
 | Bereich | Befund | Nachweis oder Grenze |
 | --- | --- | --- |
 | Supabase | Projekt aktiv, PostgreSQL 17, Organisation im Free-Tarif | Projekt- und Organisationsabfrage über MCP |
-| Datenbanksicherung | Kein vollständiger Export, Aufbewahrungsnachweis oder Restore nachgewiesen | MCP stellt keine Backup-Liste oder Dump-Downloads bereit |
+| Datenbanksicherung | B2-Zugang und Budget geprüft, Repository initialisiert; vollständiger Export und Restore noch offen | Letzter Sicherungslauf scheitert beim Snapshot an TLS; Zeitplan bleibt gesperrt |
 | Storage | Bucket `avatars`, öffentlich, Typ `STANDARD`, 4 Objekte mit insgesamt 96.391 Byte laut Metadaten | Nur aggregierte Live-Abfrage, keine Dateiinhalte exportiert |
 | Bucket-Grenzen | `file_size_limit` und `allowed_mime_types` sind jeweils `null` | Live-Metadaten, keine impliziten Grenzwerte als Konfiguration übernehmen |
 | Vercel | Runtime-Fehlergruppen sind lesbar | `TypeError: fetch failed` mit `ETIMEDOUT` auf `/` gefunden, letzter Treffer am 13.11.2026 um 06:50:22 UTC |
 | Öffentliche HTTP-Prüfung | Beide Domains liefern HTTP 200 und den richtigen Tenant | Erfolgreicher manueller Main-Lauf `43461402737`, geprüft am 13.11.2026 um 16:18:38 UTC |
 | GitHub-Fehlermail | Allgemeine und gezielte Verfügbarkeits-Alarmmail an Basti zugestellt | Schema-Replay am 13.11.2026 um 09:02:09 UTC, Commit `964787d`; Verfügbarkeits-Alarmprobe um 09:07:12 UTC, Commit `3e8d9dc`, Lauf `43398573784` |
-| Vercel-Anomaliealarme | Observability Plus nicht aktiviert, kein Vercel-Alarm nachgewiesen | Kostenpflichtige Erweiterung außerhalb des Auftrags; Sentry wird separat geprüft |
-| Sentry | Kostenloses EU-Projekt und SDK auf Produktion ausgeliefert; echte Vorschau-Testereignisse und Regression-Alarmmails belegt | Geo-Korrektur in geschützter Vorschau geprüft, keine gespeicherten Geo-Werte; beide Produktionsdomains nach Deployment erfolgreich geprüft |
+| Vercel-Anomaliealarme | Observability Plus nicht aktiviert, kein Vercel-Alarm nachgewiesen | Kostenpflichtige Erweiterung außerhalb des Auftrags; Sentry separat eingerichtet |
+| Sentry | Kostenloses EU-Projekt und SDK auf Produktion ausgeliefert; echte Vorschau-Testereignisse und Regression-Alarmmails belegt | Keine gespeicherten Geo-Werte im Retest; beide Produktionsdomains geprüft; DPA noch nicht angenommen |
 
 Supabase empfiehlt im Free-Tarif eigene Exporte außerhalb des Projekts. Eine
 Datenbanksicherung umfasst nur Storage-Metadaten, nicht die gespeicherten
@@ -77,7 +91,7 @@ ist aktiv, Business Groups sind deaktiviert. Die Kontoseite zeigte 0 Dollar und
 | Downloadlimit | 0 Dollar, maximal 1 GB pro Tag |
 | Class B und C | jeweils maximal 2.500 Vorgänge pro Tag |
 | E-Mail-Warnungen | aktiviert |
-| Backup-Bucket | privat, leer, EU Central, serverseitige Verschlüsselung aktiv |
+| Backup-Bucket | privat, EU Central, serverseitige Verschlüsselung aktiv; restic-Repository initialisiert |
 | Objektversionen | alle Versionen behalten, Object Lock aus |
 | Event Notifications und Replikation | nicht eingerichtet |
 
@@ -108,13 +122,18 @@ Sicherungszeitplan bleibt damit gesperrt.
 Der erste echte [Sicherungslauf 43465773099](https://github.com/BastiiSP/fcb-website/actions/runs/43465773099)
 scheiterte am 13.11.2026 um 16:46:44 UTC beim Datenbankexport. Kosten-, Werkzeug-
 und B2-Budgetprüfung waren erfolgreich; Restore wurde übersprungen und private
-Dateien wurden bereinigt. Ein vollständiger Snapshot oder erfolgreicher
-B2-Download-Restore ist nicht nachgewiesen. Die zugehörige GitHub-Fehlermail ist
-um 16:47:07 UTC im Empfängerpostfach belegt. Das bestätigt die Zustellung für
-den manuellen Main-Lauf, nicht für den Zeitplan. Vor erneutem Versuch den
-B2-Repositoryzustand prüfen und eine bereits erfolgte Initialisierung nicht
-wiederholen; der nächste freigegebene Lauf verwendet
-`initialize_repository=false`.
+Dateien wurden bereinigt. Die zugehörige GitHub-Fehlermail ist um 16:47:07 UTC
+im Empfängerpostfach belegt. Das bestätigt die Zustellung für den manuellen
+Main-Lauf, nicht für den Zeitplan.
+
+Der jüngste [Sicherungslauf 43470959640](https://github.com/BastiiSP/fcb-website/actions/runs/43470959640)
+auf `main` (`8793e66`) scheiterte ebenfalls vor dem Exportabschluss. Die begrenzte
+Diagnose aus [PR #12](https://github.com/BastiiSP/fcb-website/pull/12) meldet
+`SNAPSHOT` und `TLS_SONSTIG`. Die genaue TLS-Ursache ist noch nicht behoben; die
+Zertifikatsprüfung bleibt aktiv. Ein vollständiger Snapshot und ein erfolgreicher B2-Download-Restore sind
+nicht nachgewiesen. Das restic-Repository wurde bereits initialisiert. Bei
+weiteren Läufen ausschließlich `initialize_repository=false` verwenden; die
+Initialisierung nicht wiederholen. `BACKUP_ENABLED` bleibt aus.
 
 ### GitHub Actions einrichten
 
@@ -188,10 +207,10 @@ Backup- und Restore-Schritte wurden übersprungen. Es wurden keine
 Produktionsdaten exportiert oder hochgeladen. Dies belegt den B2-Zugang und die
 Budgetprüfung, noch keine Sicherung oder Wiederherstellung.
 
-`BACKUP_ENABLED` bleibt aus. Erst mit vollständigen Zugangsdaten den manuellen
-Modus `backup` ausführen, beim ersten Mal `initialize_repository=true` und
-`verify_restore=true`. Initialisieren ist nur bei vollständig leerem Bucket
-erlaubt, einschließlich alter Versionen und Löschmarkierungen.
+`BACKUP_ENABLED` bleibt aus. Den nächsten manuellen Modus `backup` erst nach
+Korrektur der TLS-Ursache mit `initialize_repository=false` und
+`verify_restore=true` ausführen. Die einmalige Initialisierung ist abgeschlossen;
+sie darf nicht erneut gestartet werden.
 
 Ein täglicher Zeitplan um 03:27 UTC ist vorbereitet. Er arbeitet erst mit
 `BACKUP_ENABLED=true`, diese Variable erst nach belegter Sicherung und Restore
@@ -360,6 +379,19 @@ geschenkter 14-Tage-Test ändert diese Vorgabe nicht und wird nicht kostenpflich
 verlängert. Der Developer-Tarif nimmt nach Überschreiten seiner Quote keine
 weiteren Ereignisse an, statt kostenpflichtig weiterzubuchen.
 
+Unter Sentry **Settings → Legal** wird der Vertrag zur Auftragsverarbeitung
+weiterhin als „Review and Accept“ angezeigt. Die Annahme durch den Betreiber
+steht aus und ist keine erledigte Einrichtung. Die EU-Datenregion ist bestätigt;
+die Freigaben zur Produktverbesserung mit identifizierenden Daten sind aus.
+
+Die dokumentierte Aufbewahrung für Fehlerdaten beträgt im Developer-Tarif
+30 Tage. Neue Sentry-Testphasen haben standardmäßig die Team-Aufbewahrung von
+90 Tagen.
+Die Frist wird beim Eingang eines Ereignisses festgelegt; ein späterer Wechsel
+zum Developer-Tarif verkürzt ältere Testereignisse nicht rückwirkend. Session
+Replay und Tracing bleiben aus. Die Fristen stammen aus der offiziellen
+[Sentry-Dokumentation](https://docs.sentry.io/security-legal-pii/security/data-retention-periods/).
+
 Im Provider sind IP-Speicherung unterbunden, Standard- und Server-Scrubbing
 aktiviert, JavaScript-Quellcode-Nachladen deaktiviert, TLS-Prüfung aktiviert und
 der E-Mail-Präfix `FCB/JFG` gespeichert. Die Werte wurden nach Navigation erneut
@@ -376,7 +408,8 @@ zuvor als gelöst markierten Testissues erneut ausgelöst und als Regressionen
 erkannt. Die zugehörigen Alarmmails sind am 13.11.2026 für den Client um
 16:28:13 UTC und für den Server um 16:28:17 UTC im Empfängerpostfach nachgewiesen.
 Dies belegt beide Fehlerwege, Regressionserkennung und Zustellung in der
-Vorschau, noch keine Produktionsüberwachung.
+Vorschau. Das SDK ist produktiv ausgeliefert; ein absichtlich ausgelöster
+Produktionsfehler wurde nicht verwendet.
 
 Die erneute JSON-Prüfung beider Ereignisse bestätigt
 `sdk.settings.infer_ip=never`. `user` enthält nur Geo-Schlüssel, deren sämtliche
@@ -503,6 +536,8 @@ Aufgabe.
 - E-Mail-Postfach → kontrollierten Alarm und Wiederherstellung abgleichen → beide
   Meldungen zum Test vorhanden; Fehlermerkmale: nur Provider-Protokoll, keine
   zugestellte Nachricht, falsches Ziel.
+- Sentry → Settings → Legal öffnen und Vertragsstatus prüfen → Annahme durch den
+  Betreiber dokumentiert; Fehlermerkmal: weiterhin „Review and Accept“.
 - Cloud-Ziel → letzten Sicherungsstand und Manifest prüfen → verschlüsseltes
   Archiv im bestätigten Zeitfenster; Fehlermerkmale: nur SQL ohne Storage,
   überalterter Stand, fehlender Prüfsummenvergleich.
@@ -517,6 +552,7 @@ Aufgabe.
 - [Supabase: Changelog](https://supabase.com/changelog)
 - [Backblaze B2: Kostenlimits](https://www.backblaze.com/docs/cloud-storage-data-caps-and-alerts)
 - [Sentry: Developer-Tarif](https://sentry.io/pricing/)
+- [Sentry: Aufbewahrungsfristen](https://docs.sentry.io/security-legal-pii/security/data-retention-periods/)
 - [Sentry: Keine Mehrverbrauchsabrechnung im Developer-Tarif](https://www.sentry.help/en/articles/13965037-can-i-set-up-an-on-demand-pay-as-you-go-budget-for-my-free-developer-plan)
 - [Vercel: Alerts](https://vercel.com/docs/alerts)
 - [UptimeRobot: Tarife](https://uptimerobot.com/pricing/)
