@@ -41,7 +41,7 @@ jobs:
 
   alarmprobe:
     name: Kontrollierte E-Mail-Alarmprobe
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.test_alert) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_alert }}
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
