@@ -83,3 +83,24 @@ jobs:
           }
           visit(path.join(root, 'build', 'types'));
           NODE
+
+      - name: Vorhandenen Next-Befund und SDK-Vertrag präzisieren
+        working-directory: sentry
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { spawnSync } = require('node:child_process');
+          const result = spawnSync('npm', ['audit', '--json', '--ignore-scripts'], {encoding:'utf8', maxBuffer:8*1024*1024});
+          const data = JSON.parse(result.stdout);
+          const v = data.vulnerabilities.next;
+          console.log('FCB_NEXT_AUDIT_V1 ' + JSON.stringify({package:'next', version:require('./node_modules/next/package.json').version, severity:v.severity, fixAvailable:v.fixAvailable, advisories:v.via.filter(x=>typeof x==='object').map(x=>({url:x.url,severity:x.severity,range:x.range}))}));
+          const root=path.dirname(require.resolve('@sentry/core/package.json'));
+          for(const file of ['event.d.ts','options.d.ts']){
+            const text=fs.readFileSync(path.join(root,'build','types','types-hoist',file),'utf8');
+            for(const term of (file==='event.d.ts'?['interface ErrorEvent']:['dataCollection','beforeSendLog','beforeSendMetric','traceLifecycle','beforeSendTransaction','sendClientReports','maxBreadcrumbs'])){
+              const i=text.indexOf(term);
+              console.log('FCB_SDK_CONTRACT_V1 '+JSON.stringify({file,term,present:i>=0,source:i<0?null:text.slice(Math.max(0,i-150),i+2000)}));
+            }
+          }
+          NODE
