@@ -78,6 +78,8 @@ export function bereinigeSentryEvent(event: EventInput, metadaten: SentryMetadat
     timestamp: event.timestamp,
     type: undefined,
     platform: "javascript",
+    // Relay darf die Transport-IP nicht nachträglich dem Ereignis zuordnen.
+    sdk: { settings: { infer_ip: "never" as const } },
     tags: { laufzeit: metadaten.laufzeit },
     environment: ["production", "preview", "development"].includes(metadaten.umgebung ?? "") ? metadaten.umgebung : undefined,
     release: metadaten.release && /^[a-f0-9]{40}$/i.test(metadaten.release) ? metadaten.release : undefined,

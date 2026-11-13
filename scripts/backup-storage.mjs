@@ -38,6 +38,7 @@ export async function inventory(client) {
   buckets.sort((a, b) => a.id.localeCompare(b.id));
   objects.sort((a, b) => canonical([a.bucket, a.name]).localeCompare(canonical([b.bucket, b.name])));
   if (new Set(objects.map((o) => canonical([o.bucket, o.name]))).size !== objects.length) throw new Error("Storage-Inventur enthält doppelte Objekte.");
+  if (objects.length > 10_000 || objects.some((o) => o.metadata.size > 32_000_000) || objects.reduce((total, o) => total + o.metadata.size, 0) > 128_000_000) throw new Error("Kostenloser Storage-Sicherungsumfang überschritten.");
   return { buckets, objects };
 }
 
@@ -62,7 +63,7 @@ async function main() {
   const [phase, destination] = process.argv.slice(2);
   if (!["inventory", "download"].includes(phase) || !destination || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("Storage-Ziel und Supabase-Zugang fehlen.");
   if (new URL(process.env.SUPABASE_URL).protocol !== "https:") throw new Error("Storage benötigt eine HTTPS-Verbindung.");
-  const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: (url, options) => fetch(url, { ...options, signal: AbortSignal.timeout(60_000) }) } });
   const inventoryPath = path.join(destination, "inventory.json");
   if (phase === "inventory") {
     await writeFile(inventoryPath, JSON.stringify(await inventory(client)), { mode: 0o600 });

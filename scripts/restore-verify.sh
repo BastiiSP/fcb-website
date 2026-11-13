@@ -10,13 +10,19 @@ destination="$2"
 for command in restic sha256sum pg_restore; do
   command -v "$command" >/dev/null || { printf 'Programm fehlt: %s\n' "$command" >&2; exit 1; }
 done
-restic restore "$snapshot" --target "$destination" --tag fcb-backup --host fcb-website
+if ! restic restore "$snapshot" --target "$destination" --tag fcb-backup --host fcb-website > "$destination/restore-private.log" 2>&1; then
+  echo 'Snapshot konnte nicht aus dem verschlüsselten Ziel geladen werden.' >&2; exit 1
+fi
 manifests=()
 while IFS= read -r -d '' manifest; do manifests+=("$manifest"); done < <(find "$destination" -type f -name SHA256SUMS -print0)
 [[ ${#manifests[@]} -eq 1 ]] || { echo 'Snapshot enthält kein eindeutiges Prüfmanifest.' >&2; exit 1; }
 payload="$(dirname "${manifests[0]}")"
 [[ -f "$payload/SHA256SUMS" && -f "$payload/backup.json" && -f "$payload/database.dump" && -f "$payload/storage.json" ]] || { echo 'Snapshot ist unvollständig.' >&2; exit 1; }
-(cd "$payload" && sha256sum --check SHA256SUMS)
-pg_restore --list "$payload/database.dump" >/dev/null
-printf 'Snapshot und Datenbankarchiv geprüft: %s\n' "$payload"
+if ! (cd "$payload" && sha256sum --check SHA256SUMS) >> "$destination/restore-private.log" 2>&1; then echo 'Sicherungsprüfsummen stimmen nicht überein.' >&2; exit 1; fi
+if ! pg_restore --list "$payload/database.dump" >> "$destination/restore-private.log" 2>&1; then echo 'Datenbankarchiv ist nicht lesbar.' >&2; exit 1; fi
+printf 'Snapshot und Datenbankarchiv geprüft.\n'
+if [[ "${BACKUP_ISOLATED_RESTORE:-false}" == true ]]; then
+  node "$(dirname "${BASH_SOURCE[0]}")/restore-isolated.mjs" "$payload"
+  exit
+fi
 echo 'Es wurden keine Daten eingespielt.'

@@ -1,0 +1,169 @@
+name: Verschlüsselte Sicherung
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Zuerst nur B2-Zugang und Budget prüfen, noch keine Produktionsdaten lesen'
+        type: choice
+        options: [preflight, backup]
+        default: preflight
+      initialize_repository:
+        description: 'Nur erstmalig: neues verschlüsseltes Repository im bestätigten leeren B2-Bucket anlegen'
+        type: boolean
+        default: false
+      verify_restore:
+        description: 'Aus B2 erneut laden und Datenbank in netzwerklosem Container wiederherstellen'
+        type: boolean
+        default: true
+  schedule:
+    - cron: '27 3 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verschluesselte-sicherung
+  cancel-in-progress: false
+
+jobs:
+  sicherung:
+    name: Sichern und optional isoliert wiederherstellen
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true') }}
+    # Ausschließlich normale öffentliche Linux-Runner, keine kostenpflichtigen Larger Runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BACKUP_PROJECT_REF: jktvmckqfklfziszfsxf
+      SUPABASE_URL: https://jktvmckqfklfziszfsxf.supabase.co
+      BACKUP_FREE_TIER_CONFIRMED: ${{ vars.BACKUP_FREE_TIER_CONFIRMED }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_DEFAULT_REGION: eu-central-003
+      AWS_PAGER: ''
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Kostenfreiheit und Laufzeit prüfen
+        run: |
+          set -euo pipefail
+          test "${BACKUP_FREE_TIER_CONFIRMED}" = true || { echo 'Bestätigung ohne Zahlungsmittel, mit kostenlosen Caps und ohne Class-D-Dienste fehlt.'; exit 1; }
+          umask 077
+          mkdir -m 700 "${RUNNER_TEMP}/fcb-backup-private"
+          docker pull supabase/postgres:17.6.1.063 > "${RUNNER_TEMP}/fcb-backup-private/image.log" 2>&1
+          image="$(docker image inspect --format '{{index .RepoDigests 0}}' supabase/postgres:17.6.1.063)"
+          [[ "${image}" =~ ^supabase/postgres@sha256:[a-f0-9]{64}$ ]] || { echo 'Unveränderliche PostgreSQL-Imagekennung fehlt.'; exit 1; }
+          echo "BACKUP_POSTGRES_IMAGE=${image}" >> "${GITHUB_ENV}"
+          sudo apt-get update -qq > "${RUNNER_TEMP}/fcb-backup-private/install.log" 2>&1
+          sudo apt-get install -y -qq restic >> "${RUNNER_TEMP}/fcb-backup-private/install.log" 2>&1
+          npm ci --ignore-scripts --no-audit --no-fund
+          command -v aws >/dev/null
+      - name: Werkzeuge ohne Produktionszugriff testen
+        run: |
+          node --test scripts/backup-storage.test.mjs scripts/backup-budget.test.mjs scripts/backup-env.test.mjs
+          python3 scripts/backup-secrets.test.py
+      - name: B2-Zugang und kostenloses Budget ohne Produktionsdaten prüfen
+        env:
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export AWS_DEFAULT_REGION="${BACKUP_S3_ENDPOINT#https://s3.}"
+          export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION%.backblazeb2.com}"
+          mkdir -m 700 "${RUNNER_TEMP}/fcb-backup-private/budget-empty"
+          node scripts/backup-b2-budget.mjs "${RUNNER_TEMP}/fcb-backup-private/budget-empty"
+      - name: Nur lesen, verschlüsseln und in kostenloses B2 sichern
+        id: backup
+        if: ${{ github.event_name == 'schedule' || inputs.mode == 'backup' }}
+        env:
+          PGHOST: ${{ secrets.BACKUP_DB_HOST }}
+          PGPORT: ${{ secrets.BACKUP_DB_PORT }}
+          PGUSER: ${{ secrets.BACKUP_DB_USER }}
+          PGDATABASE: postgres
+          PGSSLMODE: verify-full
+          PGSSLROOTCERT: system
+          BACKUP_DB_PASSWORD: ${{ secrets.BACKUP_DB_PASSWORD }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BACKUP_SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_KEY }}
+          BACKUP_RESTIC_PASSWORD: ${{ secrets.BACKUP_RESTIC_PASSWORD }}
+          INITIALIZE_REPOSITORY: ${{ inputs.initialize_repository }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export TMPDIR="${RUNNER_TEMP}/fcb-backup-private"
+          export PGPASSFILE="${TMPDIR}/pgpass" RESTIC_PASSWORD_FILE="${TMPDIR}/resticpass" RESTIC_CACHE_DIR="${TMPDIR}/cache"
+          export RESTIC_REPOSITORY="s3:${BACKUP_S3_ENDPOINT}/${BACKUP_S3_BUCKET}/fcb-website"
+          export AWS_DEFAULT_REGION="${BACKUP_S3_ENDPOINT#https://s3.}"
+          export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION%.backblazeb2.com}"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          fields = [os.environ.get(key, '') for key in ['PGHOST','PGPORT','PGDATABASE','PGUSER','BACKUP_DB_PASSWORD']]
+          if any(not value or '\n' in value or '\r' in value for value in fields):
+              raise SystemExit('Datenbankzugang fehlt oder hat ein ungültiges Format.')
+          password = os.environ.get('BACKUP_RESTIC_PASSWORD', '')
+          if len(password) < 32:
+              raise SystemExit('Ein starkes restic-Passwort mit mindestens 32 Zeichen fehlt.')
+          Path(os.environ['PGPASSFILE']).write_text(':'.join(value.replace('\\','\\\\').replace(':','\\:') for value in fields) + '\n')
+          Path(os.environ['RESTIC_PASSWORD_FILE']).write_text(password)
+          PY
+          mkdir -m 700 "${TMPDIR}/bin" "${TMPDIR}/empty"
+          for tool in psql pg_dump pg_restore; do ln -s "${GITHUB_WORKSPACE}/scripts/backup-pg-tool.sh" "${TMPDIR}/bin/${tool}"; done
+          export PATH="${TMPDIR}/bin:${PATH}"
+          node scripts/backup-b2-budget.mjs "${TMPDIR}/empty"
+          if [[ "${INITIALIZE_REPOSITORY}" == true ]]; then
+            BACKUP_REQUIRE_EMPTY=true node scripts/backup-b2-budget.mjs "${TMPDIR}/empty"
+            # init verändert nur das explizit bestätigte B2-Ziel, niemals die Datenquelle.
+            if ! restic init > "${TMPDIR}/init-private.log" 2>&1; then echo 'Neues Repository konnte nicht initialisiert werden.'; exit 1; fi
+          fi
+          bash scripts/backup-create.sh
+          if ! restic snapshots --host fcb-website --tag fcb-backup --latest 1 --json > "${TMPDIR}/snapshots.json" 2> "${TMPDIR}/snapshots-private.log"; then echo 'Sicherungsnachweis konnte nicht gelesen werden.'; exit 1; fi
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          snapshots = json.loads((Path(os.environ['TMPDIR'])/'snapshots.json').read_text())
+          if len(snapshots) != 1 or not re.fullmatch('[a-f0-9]{64}', snapshots[0]['id']):
+              raise SystemExit('Kein eindeutiger neuer Sicherungsstand gefunden.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('snapshot=' + snapshots[0]['id'] + '\n')
+          PY
+          rm -f "${PGPASSFILE}"
+      - name: Gespeicherten Stand aus B2 isoliert wiederherstellen
+        if: ${{ success() && steps.backup.outcome == 'success' && (inputs.verify_restore || github.event_name == 'schedule') }}
+        env:
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_KEY }}
+          SNAPSHOT: ${{ steps.backup.outputs.snapshot }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          # Monatliche automatische Probe. Weitere manuelle Proben bleiben durch B2-Download-Cap begrenzt.
+          if [[ "${EVENT_NAME}" == schedule && "$(date -u +%d)" != 01 ]]; then exit 0; fi
+          umask 077
+          export TMPDIR="${RUNNER_TEMP}/fcb-backup-private"
+          export RESTIC_PASSWORD_FILE="${TMPDIR}/resticpass" RESTIC_CACHE_DIR="${TMPDIR}/restore-cache"
+          export RESTIC_REPOSITORY="s3:${BACKUP_S3_ENDPOINT}/${BACKUP_S3_BUCKET}/fcb-website"
+          export AWS_DEFAULT_REGION="${BACKUP_S3_ENDPOINT#https://s3.}"
+          export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION%.backblazeb2.com}"
+          export PGPASSFILE="${TMPDIR}/empty-pgpass"
+          touch "${PGPASSFILE}"
+          export PATH="${TMPDIR}/bin:${PATH}"
+          mkdir -m 700 "${TMPDIR}/restored"
+          export BACKUP_ISOLATED_RESTORE=true
+          bash scripts/restore-verify.sh "${SNAPSHOT}" "${TMPDIR}/restored"
+      - name: Private Dateien stets entfernen
+        if: ${{ always() }}
+        run: rm -rf -- "${RUNNER_TEMP}/fcb-backup-private"
