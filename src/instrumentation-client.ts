@@ -1,9 +1,9 @@
 import * as Sentry from "@sentry/nextjs";
-import { bereinigeSentryEvent } from "./lib/sentry-privacy";
+import { bereinigeSentryEvent, sentryDatenminimierung } from "./lib/sentry-privacy";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  sendDefaultPii: false,
+  dataCollection: sentryDatenminimierung,
   tracesSampleRate: 0,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 0,

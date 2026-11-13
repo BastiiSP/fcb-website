@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { bereinigeSentryEvent } from "../src/lib/sentry-privacy";
+import { bereinigeSentryEvent, sentryDatenminimierung } from "../src/lib/sentry-privacy";
 
 test("Sentry-Ereignisse enthalten keine freien Inhalte oder personenbezogenen Daten", () => {
   const marker = "PRIVATE_MARKER_123";
@@ -61,4 +61,14 @@ test("unbekannte Umgebung und ungültige Release-ID werden verworfen", () => {
   expect(result.tags).toEqual({ laufzeit: "edge" });
   expect(result.environment).toBeUndefined();
   expect(result.release).toBeUndefined();
+});
+
+
+test("automatische Datensammlung ist bereits bei der Erfassung deaktiviert", () => {
+  expect(sentryDatenminimierung).toEqual({
+    userInfo: false, cookies: false, httpHeaders: false, httpBodies: [], urlQueryParams: false,
+    graphQL: { document: false, variables: false }, genAI: { inputs: false, outputs: false },
+    mcp: { inputs: false, outputs: false }, databaseQueryData: false, queues: false,
+    stackFrameVariables: false, frameContextLines: 0,
+  });
 });

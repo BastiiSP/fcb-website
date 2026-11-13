@@ -1,3 +1,19 @@
+// SDK 11 sammelt diese Kategorien standardmäßig; sie werden vor der Erfassung abgeschaltet.
+export const sentryDatenminimierung = {
+  userInfo: false,
+  cookies: false,
+  httpHeaders: false,
+  httpBodies: [],
+  urlQueryParams: false,
+  graphQL: { document: false, variables: false },
+  genAI: { inputs: false, outputs: false },
+  mcp: { inputs: false, outputs: false },
+  databaseQueryData: false,
+  queues: false,
+  stackFrameVariables: false,
+  frameContextLines: 0,
+};
+
 /** Nur feste technische Felder verlassen die Anwendung. Freitext und URLs können
  * personenbezogene Daten enthalten und werden deshalb vollständig verworfen. */
 interface FrameInput {
