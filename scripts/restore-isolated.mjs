@@ -27,7 +27,9 @@ try {
   docker(["run", "--detach", "--name", name, "--network", "none", "--memory", "2g", "--cpus", "2", "--mount", `type=bind,source=${destination},target=/backup,readonly`, "-e", `POSTGRES_PASSWORD=${containerPassword}`, manifest.postgresImage]);
   let ready = false;
   for (let attempt = 0; attempt < 90; attempt++) {
-    const status = spawnSync("docker", ["exec", name, "pg_isready", "-U", "supabase_admin"], { stdio: "ignore", timeout: 5000 });
+    // Der temporäre Initialisierungsserver lauscht nur am Unix-Socket und fährt
+    // nochmals herunter. TCP auf Loopback bestätigt erst den endgültigen Server.
+    const status = spawnSync("docker", ["exec", "-e", `PGPASSWORD=${containerPassword}`, name, "psql", "-XqAtw", "-h", "127.0.0.1", "-U", "supabase_admin", "-d", "postgres", "-c", "SELECT 1"], { stdio: "ignore", timeout: 5000 });
     if (status.status === 0) { ready = true; break; }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }

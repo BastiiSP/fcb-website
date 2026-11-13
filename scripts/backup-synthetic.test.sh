@@ -16,7 +16,7 @@ docker run -d --name "$source_name" --network none --memory 2g --cpus 2 \
   "$BACKUP_POSTGRES_IMAGE" > "$private/container.log"
 ready=false
 for attempt in {1..90}; do
-  if docker exec "$source_name" pg_isready -U supabase_admin >/dev/null 2>&1; then ready=true; break; fi
+  if docker exec -e PGPASSWORD=synthetic-only-password "$source_name" psql -XqAtw -h 127.0.0.1 -U supabase_admin -d postgres -c 'SELECT 1' >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
 [[ "$ready" == true ]]
