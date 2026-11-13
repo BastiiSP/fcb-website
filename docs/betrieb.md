@@ -84,9 +84,23 @@ Bestätigung der unveränderten Kontoeinstellungen bleibt Voraussetzung jedes
 Betriebs. Weder Caps noch ein Skriptbudget sind eine Zusage des Anbieters über
 zukünftige Tarife.
 
-Es wurden noch kein Anwendungsschlüssel eingerichtet, keine vollständigen
-Produktionsdaten gesichert und kein echter Restore durchgeführt. Der vorhandene
-Bucket allein ist kein Backup-Nachweis.
+Ein auf den privaten Backup-Bucket begrenzter Anwendungsschlüssel vom UI-Typ
+„Read and Write“ ist eingerichtet, einschließlich `listAllBucketNames`, ohne
+Dateipräfix- oder Ablaufbeschränkung. Dieser UI-Rechtesatz erlaubt zusätzlich
+Änderungen an Bucket-Konfigurationen, darunter Verschlüsselung, Lifecycle,
+Logging, Benachrichtigungen und Replikation. Er ist daher kein minimaler
+Objektschlüssel. Der geprüfte Backupcode nutzt diese Konfigurationsrechte nicht.
+Class D bleibt durch den vorgesehenen Betrieb ungenutzt, ist aber nicht auf
+Berechtigungsebene ausgeschlossen.
+
+Die vier Repository-Secrets `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`,
+`BACKUP_S3_KEY_ID` und `BACKUP_S3_KEY` sind hinterlegt; ihre Namen wurden in der
+GitHub-Oberfläche geprüft. Datenbankzugang, Storage-Schlüssel und
+restic-Passwort fehlen weiterhin. Repository- und Environment-Variablen sind
+leer; `BACKUP_ENABLED` und `BACKUP_FREE_TIER_CONFIRMED` sind nicht gesetzt.
+Es wurden keine vollständigen Produktionsdaten gesichert und kein echter
+B2-Download-Restore durchgeführt. Bucket und Schlüssel allein sind kein
+Backup-Nachweis.
 
 ### GitHub Actions einrichten
 
