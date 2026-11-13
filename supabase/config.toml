@@ -1,0 +1,9 @@
+# Nur für die lokale Testumgebung. Kein Abbild der gehosteten Projektkonfiguration.
+# Diese Datei nicht als Konfiguration des produktiven Projekts übertragen.
+project_id = "fcb-schema-test"
+
+[db]
+major_version = 17
+
+[db.seed]
+enabled = false

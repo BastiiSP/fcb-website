@@ -6,6 +6,6 @@
 -- mit einer NOT-NULL-Verletzung scheitern. FCB ist fachlich korrekt, weil es
 -- zu diesem Zeitpunkt keinen JFG-Vorstand gibt.
 --
--- Wird durch 20260924120300_nach_frontend_merge.sql wieder entfernt, damit
+-- Wird durch 20260925124001_nach_frontend_merge.sql wieder entfernt, damit
 -- danach jede Neuanlage die Zuordnung explizit mitsenden muss.
 alter table public.mitglieder alter column verein set default '{fcb}'::text[];
