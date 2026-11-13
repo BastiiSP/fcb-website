@@ -60,3 +60,26 @@ jobs:
           }
           console.log('FCB_AUDIT_COMPARISON_V1 ' + JSON.stringify(report));
           NODE
+
+      - name: Installierten SDK-Typvertrag prüfen
+        working-directory: sentry
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const pkg = require.resolve('@sentry/core/package.json');
+          const root = path.dirname(pkg);
+          function visit(dir) {
+            for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+              const file = path.join(dir, entry.name);
+              if (entry.isDirectory()) visit(file);
+              else if (entry.name === 'event.d.ts') {
+                const text = fs.readFileSync(file, 'utf8');
+                const match = text.match(/(?:export )?(?:interface|type) ErrorEvent[\\s\\S]{0,1600}/);
+                if (match) console.log('FCB_SENTRY_TYPE_V1 ' + JSON.stringify({version: require(pkg).version, declaration: match[0]}));
+              }
+            }
+          }
+          visit(path.join(root, 'build', 'types'));
+          NODE
