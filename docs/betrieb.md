@@ -96,8 +96,10 @@ Berechtigungsebene ausgeschlossen.
 Die vier Repository-Secrets `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`,
 `BACKUP_S3_KEY_ID` und `BACKUP_S3_KEY` sind hinterlegt; ihre Namen wurden in der
 GitHub-Oberfläche geprüft. Datenbankzugang, Storage-Schlüssel und
-restic-Passwort fehlen weiterhin. Repository- und Environment-Variablen sind
-leer; `BACKUP_ENABLED` und `BACKUP_FREE_TIER_CONFIRMED` sind nicht gesetzt.
+restic-Passwort fehlen weiterhin. Nach erneuter Prüfung der kostenlosen
+Anbieter-Caps und der fehlenden Zahlungsweise ist die Repository-Variable
+`BACKUP_FREE_TIER_CONFIRMED=true` gesetzt. `BACKUP_ENABLED` fehlt weiterhin,
+Environment-Variablen sind leer. Der Sicherungszeitplan bleibt damit gesperrt.
 Es wurden keine vollständigen Produktionsdaten gesichert und kein echter
 B2-Download-Restore durchgeführt. Bucket und Schlüssel allein sind kein
 Backup-Nachweis.
