@@ -55,7 +55,10 @@ async function run(options = {}) {
 test("Fehlerklassen enthalten keine privaten Fehlermeldungen", async () => {
   const cases = [
     ["FATAL: 28P01: password authentication failed", "AUTH"],
-    ["FATAL: certificate verify failed", "TLS"],
+    ["FATAL: certificate verify failed", "TLS_ZERTIFIKAT"],
+    ["server certificate for private.example does not match host name private.host", "TLS_HOSTNAME"],
+    ["SSL connection has been closed unexpectedly", "TLS_VERBINDUNG"],
+    ["SSL error: unspecified", "TLS_SONSTIG"],
     ["could not translate host name", "DNS"],
     ["ERROR: 42501: permission denied", "BERECHTIGUNG"],
     ["ERROR: 55000: invalid snapshot identifier", "SNAPSHOT"],
@@ -64,7 +67,7 @@ test("Fehlerklassen enthalten keine privaten Fehlermeldungen", async () => {
   for (const [error, expected] of cases) {
     const output = await run({ FAIL_AT: "1", PRIVATE_ERROR: `${error} ${secret}` });
     assert.match(output, new RegExp(`Phase: SNAPSHOT; Klasse: ${expected}\\.`));
-    assert.doesNotMatch(output, /FATAL|ERROR|password authentication|permission denied/);
+    assert.doesNotMatch(output, /FATAL|ERROR|password authentication|permission denied|private\.example|private\.host/);
   }
 });
 

@@ -41,7 +41,10 @@ function classify(logText) {
   if (state && ["42501", "42502"].includes(state)) return "BERECHTIGUNG";
   if (state && ["22023", "55000"].includes(state) && stage === "SNAPSHOT") return "SNAPSHOT";
   if (/password authentication failed|no password supplied|no pg_hba\.conf entry|authentication failed/i.test(logText)) return "AUTH";
-  if (/certificate verify failed|certificate verification failed|SSL error|SSL connection|TLS error|SSL SYSCALL/i.test(logText)) return "TLS";
+  if (/server certificate for .* does not match host name|server certificate does not match host name|certificate subject name .* does not match/i.test(logText)) return "TLS_HOSTNAME";
+  if (/certificate verify failed|certificate verification failed|self.signed certificate|unable to get (?:local )?issuer certificate|could not load (?:system )?root certificate|root certificate file .* does not exist/i.test(logText)) return "TLS_ZERTIFIKAT";
+  if (/SSL connection (?:has been closed unexpectedly|has been closed|was closed)|SSL SYSCALL/i.test(logText)) return "TLS_VERBINDUNG";
+  if (/SSL error|SSL connection|TLS error/i.test(logText)) return "TLS_SONSTIG";
   if (/could not translate host name|name or service not known|temporary failure in name resolution|getaddrinfo/i.test(logText)) return "DNS";
   if (/permission denied|must be (?:owner|superuser)/i.test(logText)) return "BERECHTIGUNG";
   if (/invalid snapshot identifier|could not import the requested snapshot/i.test(logText)) return "SNAPSHOT";
