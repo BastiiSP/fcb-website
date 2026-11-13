@@ -13,10 +13,10 @@ eine Migrationshistorie ist keine Datensicherung.
 | Storage | Bucket `avatars`, öffentlich, Typ `STANDARD`, 4 Objekte mit insgesamt 96.391 Byte laut Metadaten | Nur aggregierte Live-Abfrage, keine Dateiinhalte exportiert |
 | Bucket-Grenzen | `file_size_limit` und `allowed_mime_types` sind jeweils `null` | Live-Metadaten, keine impliziten Grenzwerte als Konfiguration übernehmen |
 | Vercel | Runtime-Fehlergruppen sind lesbar | `TypeError: fetch failed` mit `ETIMEDOUT` auf `/` gefunden, letzter Treffer am 13.11.2026 um 06:50:22 UTC |
-| Öffentliche HTTP-Prüfung | Beide Domains liefern HTTP 200 und den richtigen Tenant | Erfolgreicher PR-#8-Lauf `43398257499`, Job `131794400503` |
+| Öffentliche HTTP-Prüfung | Beide Domains liefern HTTP 200 und den richtigen Tenant | Erfolgreicher manueller Main-Lauf `43461402737`, geprüft am 13.11.2026 um 16:18:38 UTC |
 | GitHub-Fehlermail | Allgemeine und gezielte Verfügbarkeits-Alarmmail an Basti zugestellt | Schema-Replay am 13.11.2026 um 09:02:09 UTC, Commit `964787d`; Verfügbarkeits-Alarmprobe um 09:07:12 UTC, Commit `3e8d9dc`, Lauf `43398573784` |
-| Laufzeit-Alarmierung | Kein zugestellter Laufzeitfehleralarm nachgewiesen | Observability Plus laut API nicht aktiviert; Integrationsliste mangels Berechtigung nicht einsehbar |
-| Sentry | EU-Projekt eingerichtet, kostenloser Developer-Grundplan ohne Zahlungsmittel | Datenschutz-Einstellungen gespeichert und erneut gelesen; SDK-Einführung separat in Arbeit, Ereignis und Alarmmail noch nicht belegt |
+| Vercel-Anomaliealarme | Observability Plus nicht aktiviert, kein Vercel-Alarm nachgewiesen | Kostenpflichtige Erweiterung außerhalb des Auftrags; Sentry wird separat geprüft |
+| Sentry | Kostenloses EU-Projekt, echte Client- und Server-Testereignisse sowie empfangene Regression-Alarmmails belegt | SDK- und Provider-Korrektur in geschützter Vorschau geprüft: keine gespeicherten Geo-Werte; Produktionsübernahme separat zu prüfen |
 
 Supabase empfiehlt im Free-Tarif eigene Exporte außerhalb des Projekts. Eine
 Datenbanksicherung umfasst nur Storage-Metadaten, nicht die gespeicherten
@@ -52,9 +52,13 @@ den Standardbranch und einem belegten geplanten Actions-Lauf als aktiv.
 GitHub bietet für Zeitpläne keine
 garantierte Startzeit; Läufe können sich verzögern oder entfallen. Bei öffentlichen
 Repositories werden Zeitpläne nach 60 Tagen ohne Repository-Aktivität deaktiviert.
-Bis 13.11.2026 um 10:54 UTC war noch kein geplanter Lauf sichtbar. Der
-Zeitplanbetrieb bleibt deshalb offen. Der E-Mail-Kanal für kontrollierte
-PR-Fehler ist belegt, das Routing geplanter Fehler bleibt separat zu prüfen.
+Bis 13.11.2026 um 16:18 UTC war kein geplanter Verfügbarkeitslauf sichtbar.
+Der Workflow ist laut GitHub-Oberfläche aktiv und liegt auf dem Standardbranch
+`main`. Der manuelle [Main-Lauf 43461402737](https://github.com/BastiiSP/fcb-website/actions/runs/43461402737)
+prüfte beide Domains erfolgreich: HTTP 200 und passender Tenant; die Alarmprobe
+wurde übersprungen. Dies belegt keinen Zeitplanbetrieb. Die konkrete Ursache
+fehlender Schedule-Ereignisse und deren Benachrichtigungszuordnung bleiben offen.
+Der E-Mail-Kanal für kontrollierte PR-Fehler ist separat belegt.
 
 ## Kostenfreiheit und vorbereitete Sicherung
 
@@ -169,10 +173,15 @@ Secrets erhalten. Vier PTY-Tests mit erfundenen Schlüsseln prüfen beide Modi,
 fehlende Namen und die Wiederherstellung des Terminals nach Abbruch; eine
 unabhängige Prüfung einschließlich zusätzlicher Fehlerfälle ist erfolgt.
 
-Nach Kontoprüfung die Repository-Variable `BACKUP_FREE_TIER_CONFIRMED=true`
-setzen. `BACKUP_ENABLED` bleibt zunächst aus. Zuerst den manuellen Modus
-`preflight` erfolgreich prüfen. Erst mit vollständigen Zugangsdaten den Modus
-`backup` ausführen, beim ersten Mal `initialize_repository=true` und
+Der manuelle [B2-Preflight 43461145123](https://github.com/BastiiSP/fcb-website/actions/runs/43461145123)
+auf `main` war am 13.11.2026 erfolgreich. Um 16:18:36 UTC bestätigte er das
+Speicherbudget einschließlich alter Objektversionen. Werkzeugtests bestanden;
+Backup- und Restore-Schritte wurden übersprungen. Es wurden keine
+Produktionsdaten exportiert oder hochgeladen. Dies belegt den B2-Zugang und die
+Budgetprüfung, noch keine Sicherung oder Wiederherstellung.
+
+`BACKUP_ENABLED` bleibt aus. Erst mit vollständigen Zugangsdaten den manuellen
+Modus `backup` ausführen, beim ersten Mal `initialize_repository=true` und
 `verify_restore=true`. Initialisieren ist nur bei vollständig leerem Bucket
 erlaubt, einschließlich alter Versionen und Löschmarkierungen.
 
@@ -322,8 +331,8 @@ diese PR-Probe belegt. Adressen und Nachrichteninhalte werden nicht im
 | Zweck | Möglicher Weg | Voraussetzung und Grenze |
 | --- | --- | --- |
 | Ausfall beider Domains | Externer HTTP-Monitor, etwa UptimeRobot Free | Konto, bestätigte E-Mail; zum Prüfzeitpunkt kostenlose HTTP-Prüfung alle 5 Minuten laut Anbieter |
-| HTTP-Prüfung aus diesem Repository | GitHub-Actions-Lauf mit `http-probe.mjs`, echter PR-Lauf und gezielte Alarmmail erfolgreich geprüft | Zeitplanbetrieb und dessen Benachrichtigungszuordnung noch offen; Zeitplan kann verzögert laufen |
-| Client- und Serverfehler | Sentry Developer, EU-Projekt eingerichtet | SDK-Einführung in Arbeit; echtes Ereignis, Datenschutzabnahme und zugehörige E-Mail noch offen |
+| HTTP-Prüfung aus diesem Repository | Echter PR-Lauf, manueller Main-Lauf und gezielte PR-Alarmmail erfolgreich geprüft | Zeitplanbetrieb und dessen Benachrichtigungszuordnung noch offen |
+| Client- und Serverfehler | Sentry Developer und separate geschützte Prüfvorschau | Beide Fehlerwege, Regressionserkennung und Alarmmails nachgewiesen; Geo-Retest ohne gespeicherte Geo-Werte erfolgreich, Produktionsbetrieb separat zu prüfen |
 | Vercel-Anomaliealarme | Nicht vorgesehen | Kostenpflichtige Erweiterung und damit außerhalb des beauftragten Umfangs |
 
 Sentry wurde in einer EU-Organisation mit dem Projekt `fcb-website`
@@ -333,13 +342,29 @@ geschenkter 14-Tage-Test ändert diese Vorgabe nicht und wird nicht kostenpflich
 verlängert. Der Developer-Tarif nimmt nach Überschreiten seiner Quote keine
 weiteren Ereignisse an, statt kostenpflichtig weiterzubuchen.
 
-Im Provider wurden IP-Speicherung verhindert, Standard- und Server-Scrubbing
+Im Provider sind IP-Speicherung unterbunden, Standard- und Server-Scrubbing
 aktiviert, JavaScript-Quellcode-Nachladen deaktiviert, TLS-Prüfung aktiviert und
 der E-Mail-Präfix `FCB/JFG` gespeichert. Die Werte wurden nach Navigation erneut
-geprüft. Ein Sentry-Ereignis oder eine zugehörige E-Mail wurde noch nicht
-nachgewiesen. Für Vercel-Umgebungsvariablen reicht die derzeitige Connector-
-Berechtigung nicht aus, die CLI ist nicht vorhanden; die Provider-Anmeldung
-bleibt dafür erforderlich.
+geprüft. `NEXT_PUBLIC_SENTRY_DSN` ist für Vercel Production und Preview gesetzt,
+Development bleibt aus. Die Auslieferung auf Produktion ist separat zu prüfen.
+
+Eine separate, durch Vercel-SSO geschützte Prüfvorschau hat echte synthetische
+Client- und Serverfehler an Sentry übertragen. Nach der IP-Korrektur wurden die
+zuvor als gelöst markierten Testissues erneut ausgelöst und als Regressionen
+erkannt. Die zugehörigen Alarmmails sind am 13.11.2026 für den Client um
+16:28:13 UTC und für den Server um 16:28:17 UTC im Empfängerpostfach nachgewiesen.
+Dies belegt beide Fehlerwege, Regressionserkennung und Zustellung in der
+Vorschau, noch keine Produktionsüberwachung.
+
+Die erneute JSON-Prüfung beider Ereignisse bestätigt
+`sdk.settings.infer_ip=never`. `user` enthält nur Geo-Schlüssel, deren sämtliche
+Werte `null` sind; gespeicherte Geo-Werte fehlen, `_meta` weist Redaction aus.
+`request` und `extra` sind leer, Breadcrumbs fehlen, `contexts` enthält nur den
+beim Ingest ergänzten Trace-Kontext. Die Provider-Regel für `user.geo` ist
+gespeichert und geprüft. Ältere synthetische Testereignisse enthalten weiterhin
+historische Geo-Werte und wurden nicht gelöscht. Dies waren keine
+Produktionsereignisse. Privacy- und echte SDK-Envelope-Tests prüfen zusätzlich
+den festen Relay-Schalter.
 
 Der vorgesehene SDK-Umfang sind unbehandelte Fehler in Browser, Server und Edge.
 Bereits abgefangene BFV-, HTTP- und Supabase-Fehler werden dadurch nicht umfassend
@@ -418,13 +443,15 @@ offen. Es wurden keine Produktionsdaten exportiert.
 ## Geprüfte SDK-Vorbereitung und bestehende Paketfunde
 
 Die Sentry-Einführung mit SDK `11.12.0` liegt in
-[Entwurf PR #9](https://github.com/BastiiSP/fcb-website/pull/9), Stand
-`ffa1d5cc8f0eb2158e23f74ecc5bc9e5c11de3ca`. Alle fünf Pflichtprüfungen
-sind erfolgreich. 39 Unit-Tests einschließlich einer echten SDK-Probe mit
-In-Memory-Transport prüfen das Filtern synthetischer vertraulicher Inhalte und
-Anhänge. Das belegt weder die Zustellung an Sentry noch eine Alarm-E-Mail.
-Echte Vorschauereignisse aus Browser und Server sowie die empfangenen Alarmmails
-bleiben offen. Die Änderung ist noch nicht gemergt.
+[Entwurf PR #9](https://github.com/BastiiSP/fcb-website/pull/9). Privacy-Tests und
+eine echte SDK-Probe mit In-Memory-Transport prüfen das Filtern synthetischer
+vertraulicher Inhalte und Anhänge sowie den festen Relay-Schalter
+`infer_ip=never`. Die frischen Pflichtprüfungen müssen am jeweiligen PR-Head
+erfolgreich sein. Echte Vorschauereignisse, Regression-Alarmmails und die erneute
+Datenschutzabnahme ohne gespeicherte Geo-Werte sind separat belegt. Die
+Produktionsübernahme ist gesondert zu prüfen. Temporäre Fehlerknöpfe und
+Testroute liegen ausschließlich auf einem separaten Prüfbranch und werden nicht
+nach `main` übernommen.
 
 Der erfolgreiche
 [Auditvergleich](https://github.com/BastiiSP/fcb-website/actions/runs/43414322205)

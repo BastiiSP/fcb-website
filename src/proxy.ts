@@ -66,11 +66,21 @@ function erstelleContentSecurityPolicy(nonce: string): string {
     "blob:",
     ...(supabaseOrigin ? [supabaseOrigin] : []),
   ];
+  let sentryOrigin: string | undefined;
+  try {
+    const dsn = new URL(process.env.NEXT_PUBLIC_SENTRY_DSN ?? "");
+    if (dsn.protocol === "https:" && !dsn.port && /^o[0-9]+\.ingest(?:\.[a-z0-9-]+)?\.sentry\.io$/i.test(dsn.hostname)) {
+      sentryOrigin = dsn.origin;
+    }
+  } catch {
+    // Ohne gültige DSN bleibt die CSP geschlossen.
+  }
   const connectSources = [
     "'self'",
     ...(supabaseOrigin ? [supabaseOrigin] : []),
     ...(supabaseWebSocketOrigin ? [supabaseWebSocketOrigin] : []),
     "https://vitals.vercel-insights.com",
+    ...(sentryOrigin ? [sentryOrigin] : []),
   ];
 
   return [
