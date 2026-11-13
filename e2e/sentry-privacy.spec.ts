@@ -12,6 +12,7 @@ test("Sentry-Ereignisse enthalten keine freien Inhalte oder personenbezogenen Da
     breadcrumbs: [{ message: marker }],
     extra: { marker },
     contexts: { marker },
+    sdk: { name: marker, version: marker, settings: { infer_ip: "auto" } },
     tags: { marker },
     exception: { values: [{
       type: marker,
@@ -23,6 +24,7 @@ test("Sentry-Ereignisse enthalten keine freien Inhalte oder personenbezogenen Da
   expect(JSON.stringify(result)).not.toContain(marker);
   expect(result.exception.values[0]).toMatchObject({ type: "Error", stacktrace: { frames: [{ lineno: 42, colno: 3, in_app: true }] } });
   expect(result.event_id).toBe(event.event_id);
+  expect(result.sdk).toEqual({ settings: { infer_ip: "never" } });
   expect(result).toHaveProperty("type", undefined);
 });
 

@@ -52,6 +52,7 @@ test("SDK-Transport bereinigt auch interne Fehler und entfernt Anhänge", async 
     request: { url: `https://example.com/${marker}?token=${marker}`, headers: { cookie: marker }, data: marker },
     exception: { values: [{ type: "Error", value: marker, stacktrace: { frames: [{ filename: marker, function: marker }] } }] },
     extra: { marker },
+    sdk: { name: marker, version: marker, settings: { infer_ip: "auto" } },
   }, { data: { __sentry__: true }, attachments: [{ filename: marker, data: marker }] });
   Sentry.logger.info(marker);
   Sentry.metrics.count(marker, 1);
@@ -62,8 +63,9 @@ test("SDK-Transport bereinigt auch interne Fehler und entfernt Anhänge", async 
   expect(envelopes).toHaveLength(2);
   expect(JSON.stringify(envelopes)).not.toContain(marker);
   for (const envelope of envelopes) {
-    const [, items] = envelope as [unknown, Array<[ { type: string }, unknown ]>];
+    const [, items] = envelope as [unknown, Array<[{ type: string }, { sdk?: { settings?: { infer_ip?: string } } }]>];
     expect(items).toHaveLength(1);
     expect(items[0][0].type).toBe("event");
+    expect(items[0][1].sdk?.settings?.infer_ip).toBe("never");
   }
 });
