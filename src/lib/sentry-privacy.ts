@@ -34,7 +34,7 @@ interface EventInput {
   exception?: { values?: ExceptionInput[] };
 }
 
-interface SentryMetadaten {
+export interface SentryMetadaten {
   laufzeit: "browser" | "server" | "edge";
   umgebung?: string;
   release?: string;
