@@ -51,7 +51,7 @@ Optionslisten/Labels der CHECK-Felder: `src/lib/buchungsOptionen.ts` (single sou
 Pflicht-Kontaktdaten bei `anfrage` und leere Personendaten + `angenommen` bei `sperrung`.
 RLS: anon + authenticated dürfen nur INSERTen mit `typ='anfrage'`, `status='offen'`,
 `erstellt_von IS NULL`; Lesen/Ändern/Löschen/Sperrungen nur vorstand/admin. Die öffentliche Belegung liefert die Funktion `sportheim_belegte_zeiten()` (ohne
-Personendaten). Details: `supabase/migrations/20260707120000_create_sportheim_anfragen.sql`.
+Personendaten). Details: `supabase/migrations/20260707170739_create_sportheim_anfragen.sql`.
 
 ### Storage & Migrationen
 

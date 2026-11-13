@@ -8,7 +8,7 @@ Welches konkrete Problem wird gelöst und wie verhält sich die Website danach?
 - [ ] `npx next typegen && npx tsc --noEmit`
 - [ ] `npm run test:unit`
 - [ ] `npm run build`
-- [ ] GitHub-Checks für den aktuellen PR-Stand erfolgreich, einschließlich Schema-Replay, sobald eingeführt
+- [ ] GitHub-Checks für den aktuellen PR-Stand erfolgreich, einschließlich Schema-Replay
 - [ ] Unabhängige Codeprüfung durchgeführt, Befunde behoben oder begründet
 
 Konkrete Ergebnisse, Lauf-Links und noch offene Prüfungen:

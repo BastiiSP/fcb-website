@@ -13,7 +13,9 @@ eine Migrationshistorie ist keine Datensicherung.
 | Storage | Bucket `avatars`, öffentlich, Typ `STANDARD`, 4 Objekte mit insgesamt 96.391 Byte laut Metadaten | Nur aggregierte Live-Abfrage, keine Dateiinhalte exportiert |
 | Bucket-Grenzen | `file_size_limit` und `allowed_mime_types` sind jeweils `null` | Live-Metadaten, keine impliziten Grenzwerte als Konfiguration übernehmen |
 | Vercel | Runtime-Fehlergruppen sind lesbar | `TypeError: fetch failed` mit `ETIMEDOUT` auf `/` gefunden, letzter Treffer am 13.11.2026 um 06:50:22 UTC |
-| Alarmierung | Kein zugestellter Alarm nachgewiesen | Observability Plus laut API nicht aktiviert; Integrationsliste mangels Berechtigung nicht einsehbar |
+| Öffentliche HTTP-Prüfung | Beide Domains liefern HTTP 200 und den richtigen Tenant | Erfolgreicher PR-#8-Lauf `43398257499`, Job `131794400503` |
+| GitHub-Fehlermail | Allgemeine und gezielte Verfügbarkeits-Alarmmail an Basti zugestellt | Schema-Replay am 13.11.2026 um 09:02:09 UTC, Commit `964787d`; Verfügbarkeits-Alarmprobe um 09:07:12 UTC, Commit `3e8d9dc`, Lauf `43398573784` |
+| Laufzeit-Alarmierung | Kein zugestellter Laufzeitfehleralarm nachgewiesen | Observability Plus laut API nicht aktiviert; Integrationsliste mangels Berechtigung nicht einsehbar |
 | Anwendung | Analytics und Speed Insights eingebunden, kein eigenständiges Error-Monitoring eingerichtet | Repository-Prüfung |
 
 Supabase empfiehlt im Free-Tarif eigene Exporte außerhalb des Projekts. Eine
@@ -44,8 +46,10 @@ Der vorbereitete Workflow `.github/workflows/availability.yml` führt die Prüfu
 alle 10 Minuten aus, jeweils ab Minute 3. Er benötigt keine Secrets und keine
 zusätzlichen npm-Abhängigkeiten. Änderungen am Prüfer oder seinem Workflow lösen
 auch auf Pull Requests einen echten GET-Test beider Produktionsdomains aus.
-Erst nach Übernahme auf den Standardbranch und
-einem belegten Actions-Lauf gilt er als aktiv. GitHub bietet für Zeitpläne keine
+Der PR-#8-Lauf `43398257499` hat beide echten Produktionsanfragen erfolgreich
+geprüft: HTTP 200 und passender Tenant. Der Zeitplan gilt erst nach Übernahme auf
+den Standardbranch und einem belegten geplanten Actions-Lauf als aktiv.
+GitHub bietet für Zeitpläne keine
 garantierte Startzeit; Läufe können sich verzögern oder entfallen. Bei öffentlichen
 Repositories werden Zeitpläne nach 60 Tagen ohne Repository-Aktivität deaktiviert.
 Für verbindliche Überwachung rund um die Uhr ist deshalb ein externer Monitor
@@ -190,14 +194,24 @@ eine zusätzliche Pflichtprüfung.
 
 ## E-Mail-Alarme und Error-Monitoring
 
-Bestätigter Wunsch: E-Mail an Basti. Für die Zustellung fehlen noch die bestätigte
-Empfängeradresse und der gewählte, zugängliche Dienst. Eine vorhandene
-Kontoadresse wird nicht ungeprüft als Alarmziel übernommen.
+Bestätigter Wunsch: E-Mail an Basti. Die Zustellung einer GitHub-Actions-Fehlermail
+an sein verbundenes Postfach wurde für Schema-Replay am 13. November 2026 um
+09:02:09 UTC nachgewiesen. Das belegt den allgemeinen Actions-E-Mail-Kanal.
+Die gezielte Alarmprobe des Verfügbarkeitsworkflows und die Empfängerzuordnung
+für dessen geplante Läufe werden getrennt geprüft. Die gezielte PR-Alarmprobe
+wurde mit dem temporären Commit `3e8d9dc` ausgelöst: Lauf `43398573784` schlug
+erwartet fehl, die zugehörige E-Mail kam um 09:07:12 UTC an. Die gleichzeitig
+laufende CI `43398573776` war erfolgreich. Dabei wurde keine Produktionsseite
+abgeschaltet. Die temporäre PR-Auslösung der Alarmprobe wird vor dem Merge
+zurückgenommen; im finalen Workflow bleibt sie ausschließlich manuell auslösbar.
+Die Empfängerzuordnung eines geplanten Fehlerlaufs ist weiterhin nicht durch
+diese PR-Probe belegt. Adressen und Nachrichteninhalte werden nicht im
+öffentlichen Repository festgehalten.
 
 | Zweck | Möglicher Weg | Voraussetzung und Grenze |
 | --- | --- | --- |
 | Ausfall beider Domains | Externer HTTP-Monitor, etwa UptimeRobot Free | Konto, bestätigte E-Mail; zum Prüfzeitpunkt kostenlose HTTP-Prüfung alle 5 Minuten laut Anbieter |
-| HTTP-Prüfung aus diesem Repository | Vorbereiteter GitHub-Actions-Lauf mit `http-probe.mjs` | Aktivierung und Laufnachweis offen; fehlgeschlagene Läufe müssen für den Empfänger abonniert sein; Zeitplan kann verzögert laufen |
+| HTTP-Prüfung aus diesem Repository | GitHub-Actions-Lauf mit `http-probe.mjs`, echter PR-Lauf und gezielte Alarmmail erfolgreich geprüft | Zeitplanbetrieb und dessen Benachrichtigungszuordnung noch offen; Zeitplan kann verzögert laufen |
 | Client- und Serverfehler | Sentry Developer oder vorhandener vergleichbarer Dienst | Konto, Projekt, DSN und bestätigter E-Mail-Kanal; keine bloß deaktivierte SDK-Konfiguration als fertiges Monitoring ausgeben |
 | Vercel-Anomaliealarme | Vercel Alerts | Dokumentation verlangt Pro/Enterprise und Observability Plus; keine Aktivierung ohne Kostenfreigabe |
 

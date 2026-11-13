@@ -41,7 +41,7 @@ revoke execute on function public.trainer_verzeichnis() from public, anon;
 grant execute on function public.trainer_verzeichnis() to authenticated;
 
 -- Das Entfernen der alten Policy profiles_select_trainer_verzeichnis folgt
--- bewusst erst in 20260924120300_nach_frontend_merge.sql: Das live
+-- bewusst erst in 20260925124001_nach_frontend_merge.sql: Das live
 -- ausgelieferte Trainer-Verzeichnis liest bis zum Merge noch direkt aus
 -- profiles und wuerde sonst leer angezeigt.
 

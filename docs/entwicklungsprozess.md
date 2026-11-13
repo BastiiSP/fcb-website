@@ -8,8 +8,9 @@ Vercel-Deployment.
 
 Die CI mit Lint, TypeScript, Unit-Tests und Produktionsbuild ist über PR #6
 eingeführt. Der Lauf `43397095100` war erfolgreich, Merge-Commit `61c7934`.
-Schema-Replay wird separat eingeführt. Seine Aufnahme als Pflichtcheck erfolgt
-erst nach einem erfolgreichen GitHub-Lauf.
+Der Schema-Replay wurde über PR #7 eingeführt. Der abschließende PR-Lauf
+`43399220823` war erfolgreich: 27 Migrationen und 130 Datenbankprüfungen. Der
+Check `Migrationen und Schema-Vertrag` kann damit als Pflichtcheck dienen.
 
 Der Schutz von `main` ist derzeit **nicht bestätigt**. Die folgende Konfiguration
 beschreibt das Ziel und ist kein Nachweis einer bereits aktiven GitHub-Regel.
@@ -19,7 +20,7 @@ beschreibt das Ziel und ist kein Nachweis einer bereits aktiven GitHub-Regel.
 | Änderungen | Pull Request erforderlich, kein direkter Push |
 | Genehmigungen | 0 verpflichtende Reviews beim Solo-Maintainer |
 | Pflichtchecks | `Lint`, `TypeScript`, `Unit-Tests`, `Produktionsbuild` |
-| Zusätzlicher Pflichtcheck | `Migrationen und Schema-Vertrag`, sobald erfolgreich eingeführt |
+| Zusätzlicher Pflichtcheck | `Migrationen und Schema-Vertrag` |
 | Aktualität | Branch muss vor dem Merge mit `main` aktuell sein |
 | Force-Push und Branch-Löschung | Verboten |
 | Umgehung | Keine Ausnahme für Administratoren oder sonstige Bypass-Akteure |
