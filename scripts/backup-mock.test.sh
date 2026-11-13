@@ -60,7 +60,7 @@ export BACKUP_POSTGRES_IMAGE="supabase/postgres@sha256:$(printf 'a%.0s' {1..64})
 output=$(bash scripts/backup-create.sh)
 [[ "$output" != *Privater-Testdateiname* ]]
 [[ -f "$work/snap/payload/backup.json" && ! -f "$work/snap/payload/database-private.log" ]]
-"$realnode" -e 'const m = JSON.parse(require("node:fs").readFileSync(process.argv[1])); if(m.schemaVersion!==2 || m.tables[0].rows!==2 || m.policies.length!==2) process.exit(1);' "$work/snap/payload/backup.json"
+"$realnode" -e 'const m = JSON.parse(require("node:fs").readFileSync(process.argv[1])); if(m.schemaVersion!==2 || JSON.stringify(m.metadataSearchPath)!==JSON.stringify(["public","extensions"]) || m.tables[0].rows!==2 || m.policies.length!==2) process.exit(1);' "$work/snap/payload/backup.json"
 [[ -z "$(find "$work" -mindepth 1 -maxdepth 1 -name 'tmp.*' -print -quit)" ]]
 bash scripts/restore-verify.sh latest "$work/out" >/dev/null
 printf 'corrupt' > "$work/snap/payload/objects/object"
