@@ -30,7 +30,7 @@ chmod +x "$work/bin/"*
 touch "$work/pgpass" "$work/resticpass"
 export PATH="$work/bin:$PATH" REAL_NODE="$realnode" MOCK_SNAP="$work/snap" TMPDIR="$work" PGHOST=db.abcdefghijklmnopqrst.supabase.co PGPORT=5432 PGUSER=test PGDATABASE=postgres PGPASSFILE="$work/pgpass" PGSSLMODE=verify-full BACKUP_PROJECT_REF=abcdefghijklmnopqrst SUPABASE_URL=https://abcdefghijklmnopqrst.supabase.co SUPABASE_SERVICE_ROLE_KEY=fixture RESTIC_REPOSITORY=fixture RESTIC_PASSWORD_FILE="$work/resticpass"
 bash scripts/backup-create.sh >/dev/null
-[[ -z "$(find "$work" -maxdepth 1 -name 'tmp.*' -print -quit)" ]]
+[[ -z "$(find "$work" -mindepth 1 -maxdepth 1 -name 'tmp.*' -print -quit)" ]]
 bash scripts/restore-verify.sh latest "$work/out" >/dev/null
 printf 'corrupt' > "$work/snap/payload/objects/object"
 if bash scripts/restore-verify.sh latest "$work/bad" >/dev/null 2>&1; then echo 'Checksum test failed'; exit 1; fi
