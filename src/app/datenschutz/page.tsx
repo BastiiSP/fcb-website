@@ -165,20 +165,19 @@ export default async function DatenschutzPage() {
         </p>
       </RechtstextSektion>
 
-      <RechtstextSektion titel="Geplante Sicherungskopien">
+      <RechtstextSektion titel="Sicherungskopien">
         <p>
-          Für die Wiederherstellung nach einem Datenverlust bereiten wir
-          verschlüsselte Sicherungskopien der Datenbank und gespeicherter Dateien
-          vor. Als Speicherziel ist ein privater Speicherbereich von Backblaze
-          B2 Cloud Storage der Backblaze, Inc. (USA) in der Region EU Central
-          eingerichtet. Eine zusätzliche Verschlüsselung vor der Übertragung ist
-          vorgesehen. Die Einrichtung der Sicherung ist noch nicht
-          abgeschlossen; eine erfolgreiche Sicherung ist bisher nicht
-          nachgewiesen.
+          Für die Wiederherstellung nach einem Datenverlust haben wir eine
+          Sicherungskopie der Datenbank und gespeicherter Dateien manuell erstellt.
+          Sie wurde vor der Übertragung verschlüsselt und in einem privaten
+          Speicherbereich von Backblaze B2 Cloud Storage der Backblaze, Inc.
+          (USA) in der Region EU Central gespeichert. Ein regelmäßiger
+          Sicherungszeitplan ist derzeit nicht aktiviert. Die Wiederherstellung
+          der Datenbank aus der Sicherung ist noch nicht erfolgreich geprüft.
         </p>
         <p>
-          Für die Erstellung ist GitHub Actions von GitHub, Inc. (USA)
-          vorgesehen. Bei einem Sicherungslauf liegen die Daten auf dessen
+          Für die Erstellung nutzen wir GitHub Actions von GitHub, Inc. (USA).
+          Bei einem Sicherungslauf liegen die Daten auf dessen
           kurzlebigem Ausführungsserver vor der Verschlüsselung vorübergehend
           unverschlüsselt in einem zugriffsbeschränkten Verzeichnis. Dessen
           Entfernung nach dem Lauf ist vorgesehen; Sicherungsdateien sollen
@@ -190,7 +189,7 @@ export default async function DatenschutzPage() {
           dient unserem berechtigten Interesse an der Wiederherstellbarkeit und
           Sicherheit der WebApp (Art. 6 Abs. 1 lit. f DSGVO). Ein Zugriff aus
           Staaten außerhalb des Europäischen Wirtschaftsraums kann trotz des
-          europäischen Speicherorts nicht ausgeschlossen werden. Für künftige
+          europäischen Speicherorts nicht ausgeschlossen werden. Für
           Sicherungskopien ist bislang keine automatische Löschung eingerichtet.
           Weitere Informationen enthält die{" "}
           <a href="https://www.backblaze.com/company/policy/privacy" className="text-fcb-accent hover:underline">

@@ -14,17 +14,20 @@ Detailnachweise und Prüfgrenzen stehen in den verlinkten Themenquellen.
   produktiv ausgeliefert; Client-/Serverfehler und Regression-Alarme sind in
   geschützter Vorschau geprüft. Dienstübersicht und Nachweise: [Betrieb](betrieb.md).
 - B2-Zugang, kostenlose Caps und Speicherbudget sind geprüft; das verschlüsselte
-  Repository ist initialisiert. Der produktive Export scheitert beim
-  Snapshot-Aufbau an TLS. Vollständiges Backup, Download-Restore und isolierte
-  Anwendungsabnahme sind offen; der Sicherungszeitplan bleibt deaktiviert.
+  Repository ist initialisiert. Der produktive Export und verschlüsselte
+  B2-Upload sowie erneuter Download, Prüfsummen und Archivlesbarkeit sind im Lauf
+  `43475169764` belegt. Der isolierte Restore scheitert noch; Anwendungsabnahme
+  und Sicherungszeitplan bleiben offen beziehungsweise deaktiviert.
 - Rollen-, Tenant- und UI-Verträge stehen in [AGENTS.md](../AGENTS.md);
   Datenbankregeln zusätzlich in [supabase/AGENTS.md](../supabase/AGENTS.md).
 
 ## Nächster Schritt und Prüfgrenze
 
-- TLS-Ursache vor erneutem Export beheben. Repository nicht erneut initialisieren.
-  Erst nach vollständigem Sicherungs- und Wiederherstellungsnachweis den Zeitplan
-  aktivieren. Konkrete Browser-Prüfschritte: [Betrieb](betrieb.md#manuelle-prüfung).
+- Vorhandenen Stand über den manuellen Restore-only-Workflow ohne neue
+  Quellzugriffe prüfen und die feste Restore-Fehlerphase eingrenzen. Repository
+  nicht erneut initialisieren. Erst nach vollständigem Sicherungs- und
+  Wiederherstellungsnachweis den Zeitplan aktivieren. Konkrete Browser-Prüfschritte:
+  [Betrieb](betrieb.md#manuelle-prüfung).
 - Sentry-Auftragsverarbeitungsvertrag durch den Betreiber prüfen und annehmen.
   Keine neue Feature-Priorität festgelegt.
 - Die bereits belegten Live-Prüfungen ersetzen weder die ausstehende
