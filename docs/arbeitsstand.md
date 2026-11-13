@@ -13,7 +13,8 @@ Detailnachweise und Prüfgrenzen stehen in den verlinkten Themenquellen.
   fünf Minuten mit belegten Down-/Up-E-Mails. Zusätzlich sind zwei echte geplante
   GitHub-HTTP-Läufe erfolgreich, zuletzt 13.11.2026 um 22:43 UTC. Sentry ist
   im EU-Projekt produktiv,
-  Client-/Serverfehler und Regression-Alarme sind geprüft. Die maßgebliche
+  Client-/Serverfehler und Regression-Alarme sind geprüft; DPA 5.1.0 wurde am
+  13.11.2026 mit Betreiberfreigabe angenommen. Die maßgebliche
   [Diensttabelle und Betriebsnachweise](betrieb.md#eingesetzte-dienste) bündeln
   Aufgaben, kostenlosen Rahmen und Grenzen.
 - Der reguläre Gesamtlauf `43486494378` belegt aktuellen Export, verschlüsselten
@@ -34,8 +35,6 @@ Detailnachweise und Prüfgrenzen stehen in den verlinkten Themenquellen.
 
 ## Nächster Schritt und Prüfgrenze
 
-- Sentry-Auftragsverarbeitungsvertrag: Zuordnung und Vertretungsberechtigung
-  klären, dann durch den Betreiber prüfen und annehmen; Annahme weiterhin offen.
 - Ersten geplanten Sicherungslauf und dessen E-Mail-Empfänger kontrollieren.
   Repository nicht erneut initialisieren. Weiteres Wachstum unter den
   bestehenden kostenlosen Caps beobachten; automatisches Pruning fehlt. Das

@@ -12,7 +12,7 @@ Datenbank-Restore noch keine Anwendungsabnahme.
 | Vercel | Gemeinsame Anwendung für FCB und JFG | Beide Domains produktiv; kein kostenpflichtiges Observability Plus |
 | Supabase | PostgreSQL 17, Auth und Storage | Free-Projekt; 27 Migrationen abgeglichen, 130 isolierte Prüfungen; kostenpflichtiges natives Preview-Branching deaktiviert. [Migrationsabgleich](supabase-migration-abgleich.md) |
 | Backblaze B2 | Verschlüsseltes externes Sicherungsziel | EU Central, privat, kein Zahlungsmittel, 0-Dollar-Caps; Export und isolierter Datenbank-/Dateirestore belegt |
-| Sentry | Unbehandelte Client-, Server- und Edge-Fehler, E-Mailalarme | EU-Projekt, Developer-Grundplan mit befristetem Test; SDK produktiv, Testfehler und Alarmzustellung belegt; DPA-Annahme offen |
+| Sentry | Unbehandelte Client-, Server- und Edge-Fehler, E-Mailalarme | EU-Projekt, Developer-Grundplan mit befristetem Test; SDK produktiv, Testfehler und Alarmzustellung belegt; DPA 5.1.0 am 13.11.2026 angenommen |
 | UptimeRobot | Externe Erreichbarkeit beider Domains | Free, zwei aktive HTTP-Monitore alle fünf Minuten; Down-/Up-E-Mails belegt; Testmonitor pausiert |
 
 ## Aktueller Nachweis
@@ -284,12 +284,11 @@ kostenpflichtig verlängert. Im Developer-Tarif werden nach Quotenausschöpfung
 keine weiteren Ereignisse angenommen. E-Mailalarme brauchen kein bezahltes
 Upgrade. Vercel Observability Plus ist nicht aktiviert.
 
-Unter **Settings → Legal** steht bei der erneuten Kontoprüfung weiterhin
-„Review and Accept“ für DPA 5.1.0 vom 29.05.2024. Der Betreiber muss zunächst
-Vertragszuordnung und Vertretungsberechtigung klären und den Vertrag dann
-prüfen und annehmen. EU-Datenregion ist bestätigt; Freigaben zur
-Produktverbesserung mit identifizierenden Daten sind aus. Die Vertragsannahme
-ist weiterhin offen.
+Unter **Settings → Legal** wurde DPA 5.1.0 vom 29.05.2024 am 13.11.2026
+nach ausdrücklicher Betreiberfreigabe angenommen. Die Bestätigung zeigt einen
+grünen Haken und „Version 5.1.0 signed Nov 13, 2026“; die Aktion lautet nun
+„Review“. EU-Datenregion ist bestätigt; Freigaben zur Produktverbesserung mit
+identifizierenden Daten sind aus.
 
 Fehlerereignisse stehen im Developer-Tarif 30 Tage, in neuen Testphasen
 standardmäßig 90 Tage zur Verfügung. Der Tarif beim Ereigniseingang bestimmt die Frist;
@@ -368,8 +367,9 @@ Prüfungen gelten jeweils nur für ihren bezeichneten Stand.
   Archiv, DB-/Dateivertrag und bei expliziter App-Option sämtliche API-/Browserfälle
   erfolgreich, Cleanup ausgeführt; Fehlermerkmale: fehlende Stufe, feste
   Fehlerphase, fremdes Projekt/Image, Datenartefakte oder fehlende Bereinigung.
-- Sentry → Settings → Legal öffnen → Betreiberannahme dokumentiert;
-  Fehlermerkmal: weiterhin „Review and Accept“.
+- Sentry → Settings → Legal öffnen → grüner Haken, DPA 5.1.0 als am
+  13.11.2026 unterschrieben und Aktion „Review“; Fehlermerkmale: fehlende
+  Bestätigung, andere Version oder weiterhin „Review and Accept“.
 - GitHub Actions → nach dem ersten Termin am 14.11.2026 um 03:27 UTC
   (04:27 Uhr Berlin) den Sicherungslauf öffnen → `event=schedule`, neuer Export,
   verschlüsselter Upload, erfolgreiche Budgetprüfung und Cleanup; anschließend
