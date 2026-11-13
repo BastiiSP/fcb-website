@@ -42,3 +42,18 @@ jobs:
           path: sentry-lockfile/
           retention-days: 1
           if-no-files-found: error
+
+      - name: Öffentliche Paketdateien begrenzt für Offline-Übernahme ausgeben
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const zlib = require('node:zlib');
+          const crypto = require('node:crypto');
+          const data = {packageJson: fs.readFileSync('package.json', 'utf8'), packageLock: fs.readFileSync('package-lock.json', 'utf8')};
+          const compressed = zlib.gzipSync(Buffer.from(JSON.stringify(data)));
+          const encoded = compressed.toString('base64');
+          if (encoded.length > 200000) throw new Error('Paketdateien überschreiten das genehmigte Loglimit.');
+          console.log('FCB_SENTRY_LOCKFILE_V1_SHA256 ' + crypto.createHash('sha256').update(compressed).digest('hex'));
+          for (let i = 0; i < encoded.length; i += 7000) console.log('FCB_SENTRY_LOCKFILE_V1_PART ' + String(i / 7000).padStart(5, '0') + ' ' + encoded.slice(i, i + 7000));
+          console.log('FCB_SENTRY_LOCKFILE_V1_END');
+          NODE
