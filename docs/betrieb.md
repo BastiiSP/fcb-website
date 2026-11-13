@@ -16,7 +16,7 @@ eine Migrationshistorie ist keine Datensicherung.
 | Öffentliche HTTP-Prüfung | Beide Domains liefern HTTP 200 und den richtigen Tenant | Erfolgreicher manueller Main-Lauf `43461402737`, geprüft am 13.11.2026 um 16:18:38 UTC |
 | GitHub-Fehlermail | Allgemeine und gezielte Verfügbarkeits-Alarmmail an Basti zugestellt | Schema-Replay am 13.11.2026 um 09:02:09 UTC, Commit `964787d`; Verfügbarkeits-Alarmprobe um 09:07:12 UTC, Commit `3e8d9dc`, Lauf `43398573784` |
 | Vercel-Anomaliealarme | Observability Plus nicht aktiviert, kein Vercel-Alarm nachgewiesen | Kostenpflichtige Erweiterung außerhalb des Auftrags; Sentry wird separat geprüft |
-| Sentry | Kostenloses EU-Projekt, echte Client- und Server-Testereignisse sowie empfangene Regression-Alarmmails belegt | SDK- und Provider-Korrektur in geschützter Vorschau geprüft: keine gespeicherten Geo-Werte; Produktionsübernahme separat zu prüfen |
+| Sentry | Kostenloses EU-Projekt und SDK auf Produktion ausgeliefert; echte Vorschau-Testereignisse und Regression-Alarmmails belegt | Geo-Korrektur in geschützter Vorschau geprüft, keine gespeicherten Geo-Werte; beide Produktionsdomains nach Deployment erfolgreich geprüft |
 
 Supabase empfiehlt im Free-Tarif eigene Exporte außerhalb des Projekts. Eine
 Datenbanksicherung umfasst nur Storage-Metadaten, nicht die gespeicherten
@@ -97,16 +97,24 @@ Objektschlüssel. Der geprüfte Backupcode nutzt diese Konfigurationsrechte nich
 Class D bleibt durch den vorgesehenen Betrieb ungenutzt, ist aber nicht auf
 Berechtigungsebene ausgeschlossen.
 
-Die vier Repository-Secrets `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`,
-`BACKUP_S3_KEY_ID` und `BACKUP_S3_KEY` sind hinterlegt; ihre Namen wurden in der
-GitHub-Oberfläche geprüft. Datenbankzugang, Storage-Schlüssel und
-restic-Passwort fehlen weiterhin. Nach erneuter Prüfung der kostenlosen
-Anbieter-Caps und der fehlenden Zahlungsweise ist die Repository-Variable
-`BACKUP_FREE_TIER_CONFIRMED=true` gesetzt. `BACKUP_ENABLED` fehlt weiterhin,
-Environment-Variablen sind leer. Der Sicherungszeitplan bleibt damit gesperrt.
-Es wurden keine vollständigen Produktionsdaten gesichert und kein echter
-B2-Download-Restore durchgeführt. Bucket und Schlüssel allein sind kein
-Backup-Nachweis.
+Alle zehn Backup-Secret-Namen sind in der GitHub-Oberfläche geprüft. Die vier
+B2-Secrets wurden dort hinterlegt; der geprüfte Helfer hat die sechs übrigen
+Datenbank-, Storage- und restic-Werte erfolgreich übertragen. Die Werte werden
+nicht veröffentlicht. Nach erneuter Prüfung der kostenlosen Anbieter-Caps und
+der fehlenden Zahlungsweise ist `BACKUP_FREE_TIER_CONFIRMED=true` gesetzt.
+`BACKUP_ENABLED` fehlt weiterhin, Environment-Variablen sind leer. Der
+Sicherungszeitplan bleibt damit gesperrt.
+
+Der erste echte [Sicherungslauf 43465773099](https://github.com/BastiiSP/fcb-website/actions/runs/43465773099)
+scheiterte am 13.11.2026 um 16:46:44 UTC beim Datenbankexport. Kosten-, Werkzeug-
+und B2-Budgetprüfung waren erfolgreich; Restore wurde übersprungen und private
+Dateien wurden bereinigt. Ein vollständiger Snapshot oder erfolgreicher
+B2-Download-Restore ist nicht nachgewiesen. Die zugehörige GitHub-Fehlermail ist
+um 16:47:07 UTC im Empfängerpostfach belegt. Das bestätigt die Zustellung für
+den manuellen Main-Lauf, nicht für den Zeitplan. Vor erneutem Versuch den
+B2-Repositoryzustand prüfen und eine bereits erfolgte Initialisierung nicht
+wiederholen; der nächste freigegebene Lauf verwendet
+`initialize_repository=false`.
 
 ### GitHub Actions einrichten
 
@@ -152,9 +160,9 @@ verdeckt eingelesen. Der vorhandene Service-Key wird ausschließlich gezielt aus
 `.env.local` gelesen, ohne Shell-Auswertung; alternativ wird er verdeckt
 abgefragt. Nach ausdrücklicher Terminalbestätigung überträgt der Helfer die zehn
 Werte an `gh secret set` über die Standardeingabe, nicht als Argumente. Er setzt
-keine Repository-Variable und aktiviert keinen Zeitplan. Der Helfer wurde nur
-mit erfundenen Schlüsseln und einem GitHub-Mock getestet, nicht zur echten
-Übertragung ausgeführt.
+keine Repository-Variable und aktiviert keinen Zeitplan. Der Helfermodus zum
+Erhalten der vier B2-Secrets hat die sechs übrigen Werte erfolgreich übertragen;
+zusätzlich bestehen PTY-Tests mit erfundenen Schlüsseln und einem GitHub-Mock.
 
 Sind die vier B2-Secrets bereits über die Provider-Oberfläche hinterlegt, erhält
 der Helfer sie mit folgendem Aufruf:
@@ -254,7 +262,8 @@ nicht implementiert und nicht aktiviert. Da B2 auch alte Objektversionen
 aufbewahrt, kann das kostenlose Budget früher erreicht sein. RPO und RTO sind
 erst nach den echten Läufen messbar, bislang gibt es keine zugesicherte
 Wiederherstellungszeit. Mocktests, Budgettests, Storage-Tests, Syntax und Lint
-sind erfolgreich, ein echter API-Lauf mit Zugangsdaten bleibt offen. Ein kompletter
+sind erfolgreich; ein erfolgreicher produktiver Export und Restore bleibt offen.
+Ein kompletter
 synthetischer PostgreSQL-Export und Restore auf einem kostenlosen Actions-Runner
 ist inzwischen erfolgreich. Image-Initialisierung, Rollen, das JSON-Protokoll mit
 mehreren Katalogeinträgen und der reale `pg_restore` wurden damit unabhängig von
@@ -330,10 +339,19 @@ diese PR-Probe belegt. Adressen und Nachrichteninhalte werden nicht im
 
 | Zweck | Möglicher Weg | Voraussetzung und Grenze |
 | --- | --- | --- |
-| Ausfall beider Domains | Externer HTTP-Monitor, etwa UptimeRobot Free | Konto, bestätigte E-Mail; zum Prüfzeitpunkt kostenlose HTTP-Prüfung alle 5 Minuten laut Anbieter |
+| Ausfall beider Domains | UptimeRobot Free mit zwei aktiven HTTP-Monitoren im 5-Minuten-Intervall und E-Mailalarm | Beide Produktionsmonitore Up; echte Down-/Up-Alarmprobe samt empfangenen E-Mails erfolgreich, Testmonitor anschließend pausiert |
 | HTTP-Prüfung aus diesem Repository | Echter PR-Lauf, manueller Main-Lauf und gezielte PR-Alarmmail erfolgreich geprüft | Zeitplanbetrieb und dessen Benachrichtigungszuordnung noch offen |
-| Client- und Serverfehler | Sentry Developer und separate geschützte Prüfvorschau | Beide Fehlerwege, Regressionserkennung und Alarmmails nachgewiesen; Geo-Retest ohne gespeicherte Geo-Werte erfolgreich, Produktionsbetrieb separat zu prüfen |
+| Client- und Serverfehler | Sentry Developer, SDK auf Produktion und separate geschützte Prüfvorschau | Beide Fehlerwege, Regressionserkennung und Alarmmails in Vorschau nachgewiesen; Geo-Retest ohne gespeicherte Geo-Werte erfolgreich |
 | Vercel-Anomaliealarme | Nicht vorgesehen | Kostenpflichtige Erweiterung und damit außerhalb des beauftragten Umfangs |
+
+UptimeRobot Free überwacht beide Produktionsdomains unabhängig von GitHub Actions.
+Beide HTTP-Monitore sind Up, prüfen alle fünf Minuten und haben aktive
+E-Mailkontakte. Ein separater Testmonitor gegen eine absichtlich fehlende
+Testseite erzeugte einen echten HTTP-404-Alarm. Die Down-Mail kam am 13.11.2026
+um 16:48:01 UTC an. Nach Umstellung auf die erreichbare Startseite folgten der
+aufgelöste Vorfall und die Up-Mail um 16:50:27 UTC. Der Testmonitor ist danach
+pausiert. Drei von 50 kostenlosen Monitorplätzen sind belegt; keine bezahlten
+Funktionen wurden aktiviert.
 
 Sentry wurde in einer EU-Organisation mit dem Projekt `fcb-website`
 (ID `4512424071790672`) eingerichtet. Der kostenlose Developer-Grundplan ist
@@ -346,7 +364,11 @@ Im Provider sind IP-Speicherung unterbunden, Standard- und Server-Scrubbing
 aktiviert, JavaScript-Quellcode-Nachladen deaktiviert, TLS-Prüfung aktiviert und
 der E-Mail-Präfix `FCB/JFG` gespeichert. Die Werte wurden nach Navigation erneut
 geprüft. `NEXT_PUBLIC_SENTRY_DSN` ist für Vercel Production und Preview gesetzt,
-Development bleibt aus. Die Auslieferung auf Produktion ist separat zu prüfen.
+Development bleibt aus. [PR #9](https://github.com/BastiiSP/fcb-website/pull/9)
+ist als `0c186cfa6a6ee66642e70e345f59a0befc4a2cee` mit fünf erfolgreichen
+Main-Prüfungen ausgeliefert. Das zugehörige Vercel-Produktionsdeployment ist
+Ready; beide Domains wurden danach im Browser mit richtigem `data-tenant`,
+Seitentitel und H1 geprüft.
 
 Eine separate, durch Vercel-SSO geschützte Prüfvorschau hat echte synthetische
 Client- und Serverfehler an Sentry übertragen. Nach der IP-Korrektur wurden die
@@ -442,16 +464,16 @@ offen. Es wurden keine Produktionsdaten exportiert.
 
 ## Geprüfte SDK-Vorbereitung und bestehende Paketfunde
 
-Die Sentry-Einführung mit SDK `11.12.0` liegt in
-[Entwurf PR #9](https://github.com/BastiiSP/fcb-website/pull/9). Privacy-Tests und
+Die Sentry-Einführung mit SDK `11.12.0` wurde über
+[PR #9](https://github.com/BastiiSP/fcb-website/pull/9) ausgeliefert. Privacy-Tests und
 eine echte SDK-Probe mit In-Memory-Transport prüfen das Filtern synthetischer
 vertraulicher Inhalte und Anhänge sowie den festen Relay-Schalter
 `infer_ip=never`. Die frischen Pflichtprüfungen müssen am jeweiligen PR-Head
 erfolgreich sein. Echte Vorschauereignisse, Regression-Alarmmails und die erneute
 Datenschutzabnahme ohne gespeicherte Geo-Werte sind separat belegt. Die
-Produktionsübernahme ist gesondert zu prüfen. Temporäre Fehlerknöpfe und
-Testroute liegen ausschließlich auf einem separaten Prüfbranch und werden nicht
-nach `main` übernommen.
+Produktionsauslieferung und beide Tenant-Startseiten sind ebenfalls geprüft.
+Temporäre Fehlerknöpfe und Testroute liegen ausschließlich auf einem separaten
+Prüfbranch und wurden nicht nach `main` übernommen.
 
 Der erfolgreiche
 [Auditvergleich](https://github.com/BastiiSP/fcb-website/actions/runs/43414322205)
