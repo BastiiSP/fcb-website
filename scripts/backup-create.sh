@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
+[[ -n "${TMPDIR:-}" && -d "$TMPDIR" ]] || { echo 'Privates Laufzeitverzeichnis fehlt.' >&2; exit 1; }
+result_file="$TMPDIR/backup-result.json"
+rm -f -- "$result_file"
 
 for variable in PGHOST PGPORT PGUSER PGDATABASE PGPASSFILE PGSSLMODE BACKUP_PROJECT_REF SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY RESTIC_REPOSITORY RESTIC_PASSWORD_FILE; do
   if [[ -z "${!variable:-}" ]]; then printf 'Erforderliche Umgebungsvariable fehlt: %s\n' "$variable" >&2; exit 1; fi
@@ -37,9 +40,25 @@ node "$root/scripts/backup-b2-budget.mjs" "$temporary/payload"
 (
   cd "$temporary"
   # Ausgaben können Dateinamen enthalten und bleiben deshalb im privaten Laufzeitverzeichnis.
-  if ! restic backup --host fcb-website --tag fcb-backup payload > "$temporary/restic-private.log" 2>&1; then
+  if ! restic backup --json --host fcb-website --tag fcb-backup payload > "$temporary/restic-private.jsonl" 2> "$temporary/restic-private.log"; then
     echo 'Verschlüsselte Sicherung fehlgeschlagen; keine privaten Logs veröffentlicht.' >&2
     exit 1
   fi
 )
+if ! node - "$temporary/restic-private.jsonl" "$result_file" <<'NODE'
+const fs = require('node:fs');
+try {
+  const messages = fs.readFileSync(process.argv[2], 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+  const summaries = messages.filter((message) => message && message.message_type === 'summary');
+  if (summaries.length !== 1 || messages.at(-1) !== summaries[0] || !/^[a-f0-9]{64}$/.test(summaries[0].snapshot_id ?? '')) throw new Error();
+  fs.writeFileSync(process.argv[3], JSON.stringify({ snapshot: summaries[0].snapshot_id }), { mode: 0o600, flag: 'wx' });
+} catch {
+  process.exitCode = 1;
+}
+NODE
+then
+  rm -f -- "$result_file"
+  echo 'Sicherungsnachweis konnte nicht eindeutig erstellt werden.' >&2
+  exit 1
+fi
 echo 'Verschlüsselte Sicherung erstellt. Es wurden keine alten Sicherungen gelöscht.'

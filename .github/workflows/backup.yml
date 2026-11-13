@@ -35,6 +35,7 @@ jobs:
     timeout-minutes: 30
     env:
       BACKUP_PROJECT_REF: jktvmckqfklfziszfsxf
+      BACKUP_POSTGRES_IMAGE: supabase/postgres@sha256:178f0976b54a39237096bfa310c1a352dbc82fb1b08dda45cdb8acb5d40c1426
       SUPABASE_URL: https://jktvmckqfklfziszfsxf.supabase.co
       BACKUP_FREE_TIER_CONFIRMED: ${{ vars.BACKUP_FREE_TIER_CONFIRMED }}
       AWS_EC2_METADATA_DISABLED: 'true'
@@ -55,10 +56,9 @@ jobs:
           test "${BACKUP_FREE_TIER_CONFIRMED}" = true || { echo 'Bestätigung ohne Zahlungsmittel, mit kostenlosen Caps und ohne Class-D-Dienste fehlt.'; exit 1; }
           umask 077
           mkdir -m 700 "${RUNNER_TEMP}/fcb-backup-private"
-          docker pull supabase/postgres:17.6.1.063 > "${RUNNER_TEMP}/fcb-backup-private/image.log" 2>&1
-          image="$(docker image inspect --format '{{index .RepoDigests 0}}' supabase/postgres:17.6.1.063)"
-          [[ "${image}" =~ ^supabase/postgres@sha256:[a-f0-9]{64}$ ]] || { echo 'Unveränderliche PostgreSQL-Imagekennung fehlt.'; exit 1; }
-          echo "BACKUP_POSTGRES_IMAGE=${image}" >> "${GITHUB_ENV}"
+          docker pull "${BACKUP_POSTGRES_IMAGE}" > "${RUNNER_TEMP}/fcb-backup-private/image.log" 2>&1
+          image="$(docker image inspect --format '{{index .RepoDigests 0}}' "${BACKUP_POSTGRES_IMAGE}")"
+          [[ "${image}" == "${BACKUP_POSTGRES_IMAGE}" ]] || { echo 'PostgreSQL-Image stimmt nicht mit der geprüften Kennung überein.'; exit 1; }
           sudo apt-get update -qq > "${RUNNER_TEMP}/fcb-backup-private/install.log" 2>&1
           sudo apt-get install -y -qq restic >> "${RUNNER_TEMP}/fcb-backup-private/install.log" 2>&1
           npm ci --ignore-scripts --no-audit --no-fund
@@ -128,16 +128,23 @@ jobs:
             if ! restic init > "${TMPDIR}/init-private.log" 2>&1; then echo 'Neues Repository konnte nicht initialisiert werden.'; exit 1; fi
           fi
           bash scripts/backup-create.sh
-          if ! restic snapshots --host fcb-website --tag fcb-backup --latest 1 --json > "${TMPDIR}/snapshots.json" 2> "${TMPDIR}/snapshots-private.log"; then echo 'Sicherungsnachweis konnte nicht gelesen werden.'; exit 1; fi
-          python3 - <<'PY'
+          python3 - <<'PYRESULT'
           import json, os, re
           from pathlib import Path
-          snapshots = json.loads((Path(os.environ['TMPDIR'])/'snapshots.json').read_text())
-          if len(snapshots) != 1 or not re.fullmatch('[a-f0-9]{64}', snapshots[0]['id']):
-              raise SystemExit('Kein eindeutiger neuer Sicherungsstand gefunden.')
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write('snapshot=' + snapshots[0]['id'] + '\n')
-          PY
+          try:
+              result_path = Path(os.environ['TMPDIR']) / 'backup-result.json'
+              if result_path.is_symlink() or not result_path.is_file():
+                  raise ValueError()
+              result = json.loads(result_path.read_text())
+              if (not isinstance(result, dict) or set(result) != {'snapshot'}
+                  or not isinstance(result['snapshot'], str)
+                  or not re.fullmatch('[a-f0-9]{64}', result['snapshot'])):
+                  raise ValueError()
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+                  output.write('snapshot=' + result['snapshot'] + '\n')
+          except (KeyError, TypeError, ValueError, OSError):
+              raise SystemExit('Kein eindeutiger Nachweis des gerade erstellten Sicherungsstands gefunden.') from None
+          PYRESULT
           rm -f "${PGPASSFILE}"
       - name: Gespeicherten Stand aus B2 isoliert wiederherstellen
         if: ${{ success() && steps.backup.outcome == 'success' && (inputs.verify_restore || github.event_name == 'schedule') }}

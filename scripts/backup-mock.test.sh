@@ -41,7 +41,23 @@ else exec "$REAL_NODE" "$@"; fi
 STUB
 cat > "$work/bin/restic" <<'STUB'
 #!/usr/bin/env bash
-if [[ "$1" == backup ]]; then echo 'Privater-Testdateiname'; cp -R payload "$MOCK_SNAP/"; elif [[ "$1" == restore ]]; then cp -R "$MOCK_SNAP/payload" "$4/"; else exit 1; fi
+if [[ "$1" == backup ]]; then
+  [[ " $* " == *' --json '* ]] || exit 1
+  [[ "${MOCK_RESULT:-}" != failure ]] || { echo 'Privater-Testdateiname' >&2; exit 1; }
+  count=0
+  [[ ! -f "$MOCK_SNAP/count" ]] || count="$(cat "$MOCK_SNAP/count")"
+  count=$((count + 1)); printf '%s' "$count" > "$MOCK_SNAP/count"
+  id="$(printf '%064x' "$count")"
+  rm -rf "$MOCK_SNAP/payload"
+  cp -R payload "$MOCK_SNAP/"
+  echo '{"message_type":"status","private":"Privater-Testdateiname"}'
+  case "${MOCK_RESULT:-}" in
+    invalid) echo '{"message_type":"summary","snapshot_id":"invalid"}' ;;
+    duplicate) printf '{"message_type":"summary","snapshot_id":"%s"}\n' "$id" "$id" ;;
+    missing) echo '{"message_type":"status"}' ;;
+    *) printf '{"message_type":"summary","snapshot_id":"%s"}\n' "$id" ;;
+  esac
+elif [[ "$1" == restore ]]; then cp -R "$MOCK_SNAP/payload" "$4/"; else exit 1; fi
 STUB
 cat > "$work/bin/aws" <<'STUB'
 #!/usr/bin/env bash
@@ -59,6 +75,17 @@ export RESTIC_REPOSITORY="s3:${BACKUP_S3_ENDPOINT}/${BACKUP_S3_BUCKET}/fcb-websi
 export BACKUP_POSTGRES_IMAGE="supabase/postgres@sha256:$(printf 'a%.0s' {1..64})"
 output=$(bash scripts/backup-create.sh)
 [[ "$output" != *Privater-Testdateiname* ]]
+"$realnode" -e 'const r=JSON.parse(require("node:fs").readFileSync(process.argv[1])); if(r.snapshot!=="0".repeat(63)+"1") process.exit(1);' "$work/backup-result.json"
+output=$(bash scripts/backup-create.sh)
+[[ "$output" != *Privater-Testdateiname* ]]
+"$realnode" -e 'const r=JSON.parse(require("node:fs").readFileSync(process.argv[1])); if(r.snapshot!=="0".repeat(63)+"2") process.exit(1);' "$work/backup-result.json"
+for mode in invalid duplicate missing failure; do
+  export MOCK_RESULT="$mode"
+  printf '{"snapshot":"stale"}' > "$work/backup-result.json"
+  if output=$(bash scripts/backup-create.sh 2>&1); then echo 'Ungültiger Sicherungsnachweis wurde akzeptiert.' >&2; exit 1; fi
+  [[ "$output" != *Privater-Testdateiname* && ! -e "$work/backup-result.json" ]]
+done
+unset MOCK_RESULT
 [[ -f "$work/snap/payload/backup.json" && ! -f "$work/snap/payload/database-private.log" ]]
 "$realnode" -e 'const m = JSON.parse(require("node:fs").readFileSync(process.argv[1])); if(m.schemaVersion!==2 || JSON.stringify(m.metadataSearchPath)!==JSON.stringify(["public","extensions"]) || m.tables[0].rows!==2 || m.policies.length!==2) process.exit(1);' "$work/snap/payload/backup.json"
 [[ -z "$(find "$work" -mindepth 1 -maxdepth 1 -name 'tmp.*' -print -quit)" ]]
