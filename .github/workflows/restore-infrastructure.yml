@@ -1,0 +1,55 @@
+name: Synthetische Restore-Infrastruktur prüfen
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/restore-infrastructure.yml'
+      - 'scripts/restore-app-resolve-images.sh'
+      - 'scripts/restore-app-network-probe.sh'
+
+permissions:
+  contents: read
+
+# Ausschließlich öffentliche Images und synthetische Daten, ohne Backup-Secrets.
+jobs:
+  images:
+    name: Öffentliche amd64-Imagekennungen auflösen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Öffentliche Imagekennungen prüfen
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          bash -n scripts/restore-app-resolve-images.sh
+          bash scripts/restore-app-resolve-images.sh
+  netzprobe:
+    name: Gemeinsames Loopback ohne Außenzugriff prüfen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Synthetische Netzisolation prüfen
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          command -v docker >/dev/null
+          command -v openssl >/dev/null
+          bash -n scripts/restore-app-network-probe.sh
+          bash scripts/restore-app-network-probe.sh
