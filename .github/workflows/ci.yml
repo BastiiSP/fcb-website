@@ -26,7 +26,7 @@ jobs:
           - name: TypeScript
             command: npx next typegen && npx tsc --noEmit
           - name: Unit-Tests
-            command: npm run test:unit
+            command: npm run test:unit && node --test scripts/*.test.mjs && bash scripts/backup-mock.test.sh
           - name: Produktionsbuild
             command: npm run build
     steps:

@@ -18,7 +18,9 @@ cat > "$work/bin/pg_restore" <<'STUB'
 STUB
 cat > "$work/bin/node" <<'STUB'
 #!/usr/bin/env bash
-if [[ "$1" == */backup-storage.mjs ]]; then mkdir "$2/objects"; printf 'fixture' > "$2/objects/object"; printf '{}' > "$2/storage.json"; else exec "$REAL_NODE" "$@"; fi
+if [[ "$1" == */backup-storage.mjs ]]; then
+  if [[ "$2" == inventory ]]; then printf '{}' > "$3/inventory.json"; else mkdir "$3/objects"; printf 'fixture' > "$3/objects/object"; printf '{}' > "$3/storage.json"; fi
+else exec "$REAL_NODE" "$@"; fi
 STUB
 cat > "$work/bin/restic" <<'STUB'
 #!/usr/bin/env bash

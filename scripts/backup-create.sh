@@ -24,12 +24,13 @@ server_version="$(psql -X -A -t -v ON_ERROR_STOP=1 -c 'SHOW server_version')"
 [[ "$server_version" =~ ^[0-9]+\.[0-9]+ ]] || { echo 'Datenbankversion konnte nicht bestimmt werden.' >&2; exit 1; }
 export BACKUP_SERVER_VERSION="$server_version"
 node -e 'const fs = require("node:fs"); const m = { schemaVersion: 1, createdAt: new Date().toISOString(), projectRef: process.env.BACKUP_PROJECT_REF, serverVersion: process.env.BACKUP_SERVER_VERSION }; fs.writeFileSync(process.argv[1], JSON.stringify(m, null, 2), { mode: 0o600 });' "$temporary/payload/backup.json"
+node "$root/scripts/backup-storage.mjs" inventory "$temporary/payload"
 pg_dump --format=custom --no-owner --file="$temporary/payload/database.dump"
-node "$root/scripts/backup-storage.mjs" "$temporary/payload"
+node "$root/scripts/backup-storage.mjs" download "$temporary/payload"
 (
   cd "$temporary/payload"
   shopt -s nullglob
-  files=(backup.json database.dump storage.json objects/*)
+  files=(backup.json database.dump inventory.json storage.json objects/*)
   sha256sum "${files[@]}" > SHA256SUMS
 )
 (

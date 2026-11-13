@@ -12,10 +12,15 @@ Der Schema-Replay wurde über PR #7 eingeführt. Der abschließende PR-Lauf
 `43399220823` war erfolgreich: 27 Migrationen und 130 Datenbankprüfungen. Der
 Check `Migrationen und Schema-Vertrag` kann damit als Pflichtcheck dienen.
 
-Der Schutz von `main` ist derzeit **nicht bestätigt**. Die folgende Konfiguration
-beschreibt das Ziel und ist kein Nachweis einer bereits aktiven GitHub-Regel.
+Der Schutz von `main` ist seit dem 13. November 2026 aktiv. Der Betreiber führte
+`scripts/configure-main-protection.sh --apply` im eigenen Terminal erfolgreich
+aus. Das Skript prüft sämtliche gespeicherten Werte per erneutem GET.
+Unabhängig bestätigte die Branch-API `protected=true`, alle fünf Pflichtchecks
+mit GitHub-Actions-App-ID 15368 und `enforcement_level=everyone`. Der Connector
+kann die weitergehenden Schutzdetails nicht lesen (HTTP 403); deren Nachweis
+beruht auf dem erfolgreichen Skript-Readback und der Bestätigung des Betreibers.
 
-| Regel für `main` | Zielkonfiguration |
+| Regel für `main` | Gespeicherte Konfiguration |
 | --- | --- |
 | Änderungen | Pull Request erforderlich, kein direkter Push |
 | Genehmigungen | 0 verpflichtende Reviews beim Solo-Maintainer |

@@ -128,7 +128,7 @@ bash scripts/restore-verify.sh SNAPSHOT LEERES_ZIELVERZEICHNIS
 
 `backup-create.sh` exportiert eine Datenbank mit `pg_dump` im Custom-Format und
 sichert die Storage-Dateien separat mit SHA-256-Prüfsummen. `restic` verschlüsselt
-das Ergebnis im bereits eingerichteten Ziel. Der Lauf benötigt Bash, Node.js,
+das Ergebnis im bereits eingerichteten Ziel. Der Lauf benötigt Bash 4 oder neuer, Node.js,
 `psql`, `pg_dump`, `restic` und GNU `sha256sum`, etwa auf einem Linux-Runner.
 
 | Konfiguration | Benötigte Angaben |
@@ -154,8 +154,13 @@ Löschung auf einem kompromittierten oder gemeinsam genutzten Datenträger beleg
 Grenzen des vorbereiteten Exporters: `pg_dump --no-owner` sichert keine globalen
 Rollen oder Rollenpasswörter und übernimmt keine Eigentümerzuordnungen beim
 Restore. Plattformrollen und Eigentümer müssen gesondert berücksichtigt werden.
-DB und Storage werden nacheinander gesichert und bilden keinen atomaren
-gemeinsamen Zeitpunkt. Plattformkonfiguration, externe Dienste und Schlüssel
+Der Storage-Bestand wird vor dem Datenbankexport und nach den Downloads
+verglichen. Änderungen an Bucket-Einstellungen, Objektidentität, Metadaten oder
+Dateigrößen brechen den Lauf vor dem Upload ab. Die vier Storage-Mocktests und
+der simulierte Sicherungsablauf bestehen. Sie ersetzen keinen echten API-Lauf.
+DB und Storage bilden weiterhin keinen atomaren gemeinsamen Zeitpunkt;
+kurzzeitige Änderungen zwischen den Inventuren können unerkannt bleiben.
+Plattformkonfiguration, externe Dienste und Schlüssel
 werden nicht automatisch gesichert. Aufbewahrung und Zeitplan sind nicht
 aktiviert. Diese Lücken müssen vor der Abnahme des vollständigen Backup-Vertrags
 geschlossen oder ausdrücklich als akzeptierte Grenzen dokumentiert sein.
@@ -202,7 +207,7 @@ für dessen geplante Läufe werden getrennt geprüft. Die gezielte PR-Alarmprobe
 wurde mit dem temporären Commit `3e8d9dc` ausgelöst: Lauf `43398573784` schlug
 erwartet fehl, die zugehörige E-Mail kam um 09:07:12 UTC an. Die gleichzeitig
 laufende CI `43398573776` war erfolgreich. Dabei wurde keine Produktionsseite
-abgeschaltet. Die temporäre PR-Auslösung der Alarmprobe wird vor dem Merge
+abgeschaltet. Die temporäre PR-Auslösung der Alarmprobe wurde vor dem Merge
 zurückgenommen; im finalen Workflow bleibt sie ausschließlich manuell auslösbar.
 Die Empfängerzuordnung eines geplanten Fehlerlaufs ist weiterhin nicht durch
 diese PR-Probe belegt. Adressen und Nachrichteninhalte werden nicht im
