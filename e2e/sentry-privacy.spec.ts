@@ -23,6 +23,7 @@ test("Sentry-Ereignisse enthalten keine freien Inhalte oder personenbezogenen Da
   expect(JSON.stringify(result)).not.toContain(marker);
   expect(result.exception.values[0]).toMatchObject({ type: "Error", stacktrace: { frames: [{ lineno: 42, colno: 3, in_app: true }] } });
   expect(result.event_id).toBe(event.event_id);
+  expect(result).toHaveProperty("type", undefined);
 });
 
 test("ungültige IDs und Freitext werden auch ohne Exception entfernt", () => {

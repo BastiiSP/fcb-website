@@ -60,6 +60,7 @@ export function bereinigeSentryEvent(event: EventInput, metadaten: SentryMetadat
   return {
     event_id: event.event_id && /^[a-f0-9]{32}$/i.test(event.event_id) ? event.event_id : undefined,
     timestamp: event.timestamp,
+    type: undefined,
     platform: "javascript",
     tags: { laufzeit: metadaten.laufzeit },
     environment: ["production", "preview", "development"].includes(metadaten.umgebung ?? "") ? metadaten.umgebung : undefined,
