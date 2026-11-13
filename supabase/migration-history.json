@@ -1,0 +1,188 @@
+{
+  "captured_at": "2026-11-13",
+  "remote_count": 26,
+  "migrations": [
+    {
+      "version": "20260522082642",
+      "name": "initial_schema_profiles_buchungen",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "d04216e1a818b730bfbe281954e7557c",
+      "local_sha256": "168197091ba0a94ab1b214ff86d8b20df221d00b39633c5bdb38dcf837f245be"
+    },
+    {
+      "version": "20260522094704",
+      "name": "fix_rls_infinite_recursion_profiles",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "57307dae9ffef37deb9547b9a870bbeb",
+      "local_sha256": "2ce35ad9ae1d12f749facb3d390692f3b1b96e0408e280a970d1b08b344597a1"
+    },
+    {
+      "version": "20260522095842",
+      "name": "grant_permissions_profiles_buchungen",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "e4b3e3284bbccf00476aad1fc67c04fd",
+      "local_sha256": "7a7ac4e72a84aa491fa9352d655d82bfc7e30864be1d105dec44ac39f7768520"
+    },
+    {
+      "version": "20260526111242",
+      "name": "create_mitglieder_table",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "d67cba4c0e154e53fb4c65b94c92a819",
+      "local_sha256": "0865e67351b2c38531a04a1426921b7042e8fc3ac3fb26cd884990c5896c44ce"
+    },
+    {
+      "version": "20260526165609",
+      "name": "profile_extension_and_team_requests",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "4e51f48dfd5ff521b0083e6f6206bf1c",
+      "local_sha256": "7f42c7635ce54638d66962a0c83f27362b6613714a3b5d7fa123ae5c94510a8e"
+    },
+    {
+      "version": "20260526165622",
+      "name": "avatar_storage_policies",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "da29208f9b7a59301f9661e934f32e4f",
+      "local_sha256": "42309685d85cff8d430382646140147006e962673d7a26921e4fc108015596b9"
+    },
+    {
+      "version": "20260527153533",
+      "name": "add_fk_mannschaftsanfragen_user_to_profiles",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "dcc1be14cee62c59d1c50053db6d7ce5",
+      "local_sha256": "dfe7570be35fd1dbf715a8cad23842649409c059ed47f09b1bb6b8822ed90422"
+    },
+    {
+      "version": "20260527162619",
+      "name": "fix_self_approval_mannschaftsanfrage",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "d37f510d64c102d498c782f6a9a130b2",
+      "local_sha256": "dedf8ba1414b607229879f1f0e7feb66d7829ebcf7768b34ff59158bd90f97f4"
+    },
+    {
+      "version": "20260527162628",
+      "name": "allow_user_delete_own_open_anfrage",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "69cd105488cce3af2eab3a0b0efdcc24",
+      "local_sha256": "2bf02bab6bb893233ec2eaa3f24f23af8dfac3298e01c3a03c2dbf9bb3c726fb"
+    },
+    {
+      "version": "20260527162642",
+      "name": "grant_delete_mannschaftsanfragen",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "649075572742bbbac4a6374358a2959a",
+      "local_sha256": "4d3f17838e1c52cb89099c007d3caf74fa50208e10db093edf8b787c3f7a5878"
+    },
+    {
+      "version": "20260528093832",
+      "name": "add_banner_geschlossen_am_to_mannschaftsanfragen",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "fb8d559c1213422c0278e028593efe67",
+      "local_sha256": "0c4bec2f5bd0329ea817af90436400ab9c34330ef37843b819f35d51bf2455d4"
+    },
+    {
+      "version": "20260615184940",
+      "name": "harden_security_advisors",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "816250b65e31a15c3778c92a1a12299a",
+      "local_sha256": "b631490154642ad8c7cd57579b310267e29efea556e637a719f12dfecab6ac58"
+    },
+    {
+      "version": "20260617110901",
+      "name": "extend_handle_new_user_google_oauth",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "2f00b1540d805e46f8f82066f74c6333",
+      "local_sha256": "621a323169f823162c22c5de0ed2deb559c5b9acbc217b74c7ee9d0259ac0251"
+    },
+    {
+      "version": "20260627082533",
+      "name": "create_keepalive",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "896988db54ec1bd6f8a39a13e370f818",
+      "local_sha256": "de5d243dd515716acb0e0dd22d80ed8495c8854688471d220aec006f869a16b0"
+    },
+    {
+      "version": "20260707074052",
+      "name": "harden_buchungen_policies_eigene_buchungen",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "bd93262baea932676b5cf78b47cab406",
+      "local_sha256": "0ecf5cf1ecdf93907d99eac4ce09ded5cfe1bd57d4df2f1e5985f4fdc7311565"
+    },
+    {
+      "version": "20260707101754",
+      "name": "add_serien_id_to_buchungen",
+      "source": "supabase_migrations.schema_migrations",
+      "remote_sql_md5": "de64702fa9b2c16cbc0e15837f8be730",
+      "local_sha256": "8fcfdc27b640e877734397a2905258755bc5c887ff0587d7ec655832ada91068"
+    },
+    {
+      "version": "20260707170739",
+      "name": "create_sportheim_anfragen",
+      "source": "supabase/migrations/20260707120000_create_sportheim_anfragen.sql",
+      "remote_sql_md5": "355875dbf686aa108228fdd50f6dd584",
+      "local_sha256": "870ad40d74ab81844a5f47111f82da4a4394d4e6282d09f28a87380c36371a57"
+    },
+    {
+      "version": "20260708072023",
+      "name": "allow_trainer_directory_profiles_select",
+      "source": "supabase/migrations/20260708120000_allow_trainer_directory_profiles_select.sql",
+      "remote_sql_md5": "eb30629b6ffacd8951fdf7815d2d3e42",
+      "local_sha256": "18e8c990570483bb16103e77c55f5b3f55246e489a150f2e3087d4a540e823bc"
+    },
+    {
+      "version": "20260924151311",
+      "name": "harden_profile_role_changes",
+      "source": "supabase/migrations/20260924120000_harden_profile_role_changes.sql",
+      "remote_sql_md5": "fc688c0a2d807c177284f3064db545a3",
+      "local_sha256": "2b8a8fbf7777ac55a2f07febab103f4c444665b0fafbb78c5b5840f744246d97"
+    },
+    {
+      "version": "20260924151336",
+      "name": "tenant_trennung_mitglieder",
+      "source": "supabase/migrations/20260924120100_tenant_trennung_mitglieder.sql",
+      "remote_sql_md5": "6ca8817488ff275fe433233dafdfa455",
+      "local_sha256": "45397c15ebba7f75be764bf2f83c0cdf71ee8fa016345b4e6ec9efb1b9a2e49b"
+    },
+    {
+      "version": "20260924151412",
+      "name": "uebergang_mitglieder_verein_default",
+      "source": "supabase/migrations/20260924120150_uebergang_mitglieder_verein_default.sql",
+      "remote_sql_md5": "0450149918a68f8192ba57e8ea66ddd7",
+      "local_sha256": "2ce2e781d1787f039b93e331774d8342d75e0aeb9d0ad9616c488b2be18c0561"
+    },
+    {
+      "version": "20260924151426",
+      "name": "least_privilege_haertung",
+      "source": "supabase/migrations/20260924120200_least_privilege_haertung.sql",
+      "remote_sql_md5": "bed69103e303bfaa35d68dc8d732dbcc",
+      "local_sha256": "fc981f83ebfe60d20f3e81b396a133a8c18fb137b0250d0f07bd3b6f68b23c53"
+    },
+    {
+      "version": "20260924151817",
+      "name": "service_role_grants",
+      "source": "supabase/migrations/20260924120250_service_role_grants.sql",
+      "remote_sql_md5": "3a6c24e0406cf9090610555a1fccf086",
+      "local_sha256": "0c9d2594ee571a26848160ec43b8345eb72654dc00fd42891a7d81629f4650b3"
+    },
+    {
+      "version": "20260924152333",
+      "name": "fremdprofil_old_id_und_baseline",
+      "source": "supabase/migrations/20260924120260_fremdprofil_old_id_und_baseline.sql",
+      "remote_sql_md5": "fb197e1e24ac6a0e25bbb4028478a041",
+      "local_sha256": "db8e173849ebb4e042ab727ff4c6589395cc5025c2547a84993df1037e19d8b1"
+    },
+    {
+      "version": "20260925124001",
+      "name": "nach_frontend_merge",
+      "source": "supabase/migrations/20260924120300_nach_frontend_merge.sql",
+      "remote_sql_md5": "0bdf864c4a9546260653f57f5e07084d",
+      "local_sha256": "cffa69d953640eb8744bcdb8df7d98230a3890dbb384a390bb6779377fc91da8"
+    },
+    {
+      "version": "20261024153635",
+      "name": "mail_marker_bestandskonten",
+      "source": "supabase/migrations/20261024170000_mail_marker_bestandskonten.sql",
+      "remote_sql_md5": "ebef0f5399b78348528b10e49de78a5f",
+      "local_sha256": "15c173af3ef1b2c300a1145b6898579307e7097b86bf26ff3ebd55c48a5f20a4"
+    }
+  ]
+}
