@@ -15,6 +15,12 @@ import unittest
 
 class SecretHelperTest(unittest.TestCase):
     def test_host_stdin_and_targeted_env_parsing(self):
+        self.run_interactive(False)
+
+    def test_preserve_existing_b2(self):
+        self.run_interactive(True)
+
+    def run_interactive(self, preserve):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "scripts").mkdir()
@@ -33,12 +39,17 @@ record = {'args': args, 'host': os.environ.get('GH_HOST'), 'stdin': sys.stdin.re
 with open(os.environ['MOCK_RECORDS'],'a') as target: target.write(json.dumps(record) + '\\n')
 if args[:2] == ['api','user']: print('BastiiSP')
 elif args[:1] == ['api']: print('true')
+elif args[:2] == ['secret','list']: print(os.environ.get('MOCK_NAMES', ''))
 """)
             mock.chmod(0o700)
-            environment = {**os.environ, "PATH": str(root / "bin") + os.pathsep + os.environ["PATH"], "GH_HOST": "wrong.invalid", "MOCK_RECORDS": str(root / "records")}
+            names = ["BACKUP_S3_ENDPOINT", "BACKUP_S3_BUCKET", "BACKUP_S3_KEY_ID", "BACKUP_S3_KEY"]
+            environment = {**os.environ, "PATH": str(root / "bin") + os.pathsep + os.environ["PATH"], "GH_HOST": "wrong.invalid", "MOCK_RECORDS": str(root / "records"), "MOCK_NAMES": "\n".join(names)}
             master, slave = pty.openpty()
             original_terminal = termios.tcgetattr(master)
-            process = subprocess.Popen(["bash", str(root / "scripts" / "configure-backup-secrets.sh")], stdin=slave, stdout=slave, stderr=slave, env=environment)
+            command = ["bash", str(root / "scripts" / "configure-backup-secrets.sh")]
+            if preserve:
+                command.append("--preserve-existing-b2")
+            process = subprocess.Popen(command, stdin=slave, stdout=slave, stderr=slave, env=environment)
             os.close(slave)
             output = bytearray()
             consumed = 0
@@ -69,8 +80,9 @@ elif args[:1] == ['api']: print('true')
                 answer("Session-Port", "")
                 answer("Datenbanknutzer", "")
                 answer("Bestehendes Datenbankpasswort", password)
-                answer("B2-Anwendungsschlüssel-ID", "fixture-key-id")
-                answer("B2-Anwendungsschlüssel,", key)
+                if not preserve:
+                    answer("B2-Anwendungsschlüssel-ID", "fixture-key-id")
+                    answer("B2-Anwendungsschlüssel,", key)
                 # Beide Zeilen absichtlich sofort einfügen. Die zweite wartet
                 # bereits, während der Helfer zwischen den Prompts arbeitet.
                 answer("Neues restic-Passwort mit mindestens 32 Zeichen: ", restic + "\n" + restic)
@@ -92,18 +104,65 @@ elif args[:1] == ['api']: print('true')
             records = [json.loads(line) for line in (root / "records").read_text().splitlines()]
             self.assertTrue(all(record["host"] == "github.com" for record in records))
             secrets = [record for record in records if record["args"][:2] == ["secret", "set"]]
-            self.assertEqual(len(secrets), 10)
+            self.assertEqual(len(secrets), 6 if preserve else 10)
             for record in secrets:
                 self.assertEqual(record["args"][3:], ["--repo", "BastiiSP/fcb-website"])
                 self.assertNotIn(record["stdin"], record["args"])
             values = {record["args"][2]: record["stdin"] for record in secrets}
             self.assertEqual(values["BACKUP_DB_PASSWORD"], password)
             self.assertEqual(values["BACKUP_SUPABASE_SERVICE_ROLE_KEY"], service)
-            self.assertEqual(values["BACKUP_S3_KEY"], key)
+            if preserve:
+                self.assertTrue(set(names).isdisjoint(values))
+                self.assertNotIn(b"B2-Anwendungsschl\xc3\xbcssel-ID", output)
+                listing = [record for record in records if record["args"][:2] == ["secret", "list"]]
+                self.assertEqual(len(listing), 1)
+                self.assertEqual(listing[0]["args"], ["secret", "list", "--repo", "BastiiSP/fcb-website", "--json", "name", "--jq", ".[].name"])
+            else:
+                self.assertEqual(values["BACKUP_S3_KEY"], key)
             self.assertEqual(values["BACKUP_RESTIC_PASSWORD"], restic)
             for value in [password, service, key, restic]:
                 self.assertNotIn(value.encode(), output)
             self.assertFalse(marker.exists())
+
+    def test_missing_b2_name_prevents_all_writes(self):
+        names = ["BACKUP_S3_ENDPOINT", "BACKUP_S3_BUCKET", "BACKUP_S3_KEY_ID", "BACKUP_S3_KEY"]
+        for missing in names:
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                (root / "bin").mkdir()
+                mock = root / "bin" / "gh"
+                mock.write_text("""#!/usr/bin/env python3
+import os, sys
+args = sys.argv[1:]
+if args[:2] == ['api', 'user']: print('BastiiSP')
+elif args[:1] == ['api']: print('true')
+elif args[:2] == ['secret', 'list']: print(os.environ['MOCK_NAMES'])
+elif args[:2] == ['secret', 'set']: open(os.environ['MOCK_TRANSFER'], 'w').close()
+""")
+                mock.chmod(0o700)
+                environment = {**os.environ, "PATH": str(root / "bin") + os.pathsep + os.environ["PATH"], "MOCK_NAMES": "\n".join(name for name in names if name != missing) + "\n" + missing + "_EXTRA", "MOCK_TRANSFER": str(root / "transfer")}
+                master, slave = pty.openpty()
+                original = termios.tcgetattr(master)
+                process = subprocess.Popen(["bash", str(Path(__file__).parent / "configure-backup-secrets.sh"), "--preserve-existing-b2"], stdin=slave, stdout=slave, stderr=slave, env=environment)
+                os.close(slave)
+                try:
+                    output = bytearray()
+                    deadline = time.monotonic() + 10
+                    while process.poll() is None:
+                        if time.monotonic() > deadline:
+                            self.fail("Prüfung fehlender Secret-Namen dauerte zu lange.")
+                        if select.select([master], [], [], 0.2)[0]:
+                            output.extend(os.read(master, 4096))
+                    self.assertNotEqual(process.wait(timeout=10), 0)
+                    self.assertIn(missing.encode(), output)
+                    self.assertNotIn(b"Session-Pooler-Host", output)
+                    self.assertFalse((root / "transfer").exists())
+                    self.assertEqual(termios.tcgetattr(master), original)
+                finally:
+                    if process.poll() is None:
+                        process.kill()
+                        process.wait()
+                    os.close(master)
 
     def test_abort_restores_terminal_and_does_not_transfer(self):
         for signal_number in [1, 2, 15]:

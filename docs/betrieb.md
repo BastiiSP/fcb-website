@@ -136,6 +136,23 @@ keine Repository-Variable und aktiviert keinen Zeitplan. Der Helfer wurde nur
 mit erfundenen Schlüsseln und einem GitHub-Mock getestet, nicht zur echten
 Übertragung ausgeführt.
 
+Sind die vier B2-Secrets bereits über die Provider-Oberfläche hinterlegt, erhält
+der Helfer sie mit folgendem Aufruf:
+
+```sh
+bash scripts/configure-backup-secrets.sh --preserve-existing-b2
+```
+
+Dieser Modus prüft ausschließlich, ob die vier exakten Secret-Namen
+`BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_KEY_ID` und `BACKUP_S3_KEY`
+vorhanden sind. Er liest und validiert deren Werte nicht und fragt die
+B2-Schlüssel nicht erneut ab. Fehlt ein Name oder schlägt die Namensabfrage fehl,
+bricht er vor Eingaben und Übertragung ab. Nach Terminalbestätigung werden nur
+die übrigen sechs Secrets übertragen. Ohne Option bleibt der Modus mit zehn
+Secrets erhalten. Vier PTY-Tests mit erfundenen Schlüsseln prüfen beide Modi,
+fehlende Namen und die Wiederherstellung des Terminals nach Abbruch; eine
+unabhängige Prüfung einschließlich zusätzlicher Fehlerfälle ist erfolgt.
+
 Nach Kontoprüfung die Repository-Variable `BACKUP_FREE_TIER_CONFIRMED=true`
 setzen. `BACKUP_ENABLED` bleibt zunächst aus. Zuerst den manuellen Modus
 `preflight` erfolgreich prüfen. Erst mit vollständigen Zugangsdaten den Modus
