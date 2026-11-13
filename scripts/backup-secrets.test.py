@@ -1,5 +1,6 @@
 """Prüft den interaktiven Helfer ausschließlich mit erfundenen Schlüsseln und gh-Mock."""
 import base64
+import errno
 import json
 import os
 from pathlib import Path
@@ -152,7 +153,16 @@ elif args[:2] == ['secret', 'set']: open(os.environ['MOCK_TRANSFER'], 'w').close
                         if time.monotonic() > deadline:
                             self.fail("Prüfung fehlender Secret-Namen dauerte zu lange.")
                         if select.select([master], [], [], 0.2)[0]:
-                            output.extend(os.read(master, 4096))
+                            try:
+                                chunk = os.read(master, 4096)
+                            except OSError as error:
+                                # Linux meldet das geschlossene PTY mit EIO statt EOF.
+                                if error.errno != errno.EIO:
+                                    raise
+                                break
+                            if not chunk:
+                                break
+                            output.extend(chunk)
                     self.assertNotEqual(process.wait(timeout=10), 0)
                     self.assertIn(missing.encode(), output)
                     self.assertNotIn(b"Session-Pooler-Host", output)
