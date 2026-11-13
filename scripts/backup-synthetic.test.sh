@@ -21,7 +21,7 @@ for attempt in {1..90}; do
 done
 [[ "$ready" == true ]]
 [[ "$(docker inspect --format '{{.HostConfig.NetworkMode}}' "$source_name")" == none ]]
-query() { docker exec -i "$source_name" psql -XqAt -v ON_ERROR_STOP=1 -U supabase_admin -d "${1:-synthetic}"; }
+query() { docker exec -i -e PGPASSWORD=synthetic-only-password "$source_name" psql -XqAt -v ON_ERROR_STOP=1 -U supabase_admin -d "${1:-synthetic}"; }
 printf 'CREATE DATABASE synthetic TEMPLATE template0;' | query postgres
 query < "$root/scripts/fixtures/backup-synthetic.sql"
 mkdir -m 700 "$private/bin" "$private/payload"
@@ -30,7 +30,7 @@ for tool in psql pg_dump; do
   cat > "$private/bin/$tool" <<'WRAPPER'
 #!/usr/bin/env bash
 set -euo pipefail
-exec docker exec -i -e PGOPTIONS "$SYNTHETIC_SOURCE" "$(basename "$0")" -U supabase_admin -d synthetic "$@"
+exec docker exec -i -e PGOPTIONS -e PGPASSWORD=synthetic-only-password "$SYNTHETIC_SOURCE" "$(basename "$0")" -U supabase_admin -d synthetic "$@"
 WRAPPER
   chmod 700 "$private/bin/$tool"
 done
