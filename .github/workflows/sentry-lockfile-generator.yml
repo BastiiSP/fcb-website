@@ -1,0 +1,43 @@
+name: Sentry Lockfile einmalig erzeugen
+
+on:
+  push:
+    branches: ['codex/sentry-lockfile-generator']
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile:
+    name: npm Lockfile für Sentry 11.12.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+      - name: Lockfile ohne Installationsskripte erzeugen
+        run: npm install --package-lock-only --ignore-scripts --save-exact --no-audit --no-fund @sentry/nextjs@11.12.0
+      - name: Lockfile-Konsistenz mit echter Installation prüfen
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ls @sentry/nextjs
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.dependencies['@sentry/nextjs']!=='11.12.0'||l.packages['node_modules/@sentry/nextjs'].version!=='11.12.0') process.exit(1)"
+      - name: Öffentliche Paketdateien zur geprüften Übernahme sichern
+        run: |
+          mkdir sentry-lockfile
+          cp package.json package-lock.json sentry-lockfile/
+          cd sentry-lockfile
+          sha256sum package.json package-lock.json > SHA256SUMS
+      - name: Unveränderliches Ergebnisartefakt hochladen
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sentry-lockfile-11.12.0
+          path: sentry-lockfile/
+          retention-days: 1
+          if-no-files-found: error
