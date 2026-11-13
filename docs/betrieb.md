@@ -345,8 +345,8 @@ weiteren Ereignisse an, statt kostenpflichtig weiterzubuchen.
 Im Provider sind IP-Speicherung unterbunden, Standard- und Server-Scrubbing
 aktiviert, JavaScript-Quellcode-Nachladen deaktiviert, TLS-Prüfung aktiviert und
 der E-Mail-Präfix `FCB/JFG` gespeichert. Die Werte wurden nach Navigation erneut
-geprüft. `NEXT_PUBLIC_SENTRY_DSN` ist ausschließlich für Vercel Preview gesetzt;
-die Produktionskonfiguration bleibt aus.
+geprüft. `NEXT_PUBLIC_SENTRY_DSN` ist für Vercel Production und Preview gesetzt,
+Development bleibt aus. Die Auslieferung auf Produktion ist separat zu prüfen.
 
 Eine separate, durch Vercel-SSO geschützte Prüfvorschau hat echte synthetische
 Client- und Serverfehler an Sentry übertragen. Nach der IP-Korrektur wurden die
