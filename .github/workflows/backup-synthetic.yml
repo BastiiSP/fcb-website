@@ -1,0 +1,23 @@
+name: Synthetischer Backup-Restore-Nachweis
+on:
+  push:
+    branches: [codex/backup-synthetic-proof]
+permissions:
+  contents: read
+jobs:
+  synthetischer-nachweis:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Lokales Verschlüsselungswerkzeug installieren
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq restic
+      - name: Nur synthetische Daten exportieren und wiederherstellen
+        run: bash scripts/backup-synthetic.test.sh
