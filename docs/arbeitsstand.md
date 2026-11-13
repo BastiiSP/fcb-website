@@ -5,41 +5,42 @@ Detailnachweise und Prüfgrenzen stehen in den verlinkten Themenquellen.
 
 ## Dokumentierter Stand
 
-- `main` ist durch Pull Requests und fünf Pflichtchecks geschützt. CI und der
-  kostenlose isolierte Schema-Replay mit 27 Migrationen und 130 Prüfungen sind
-  eingeführt. Maßgeblich: [Entwicklungsprozess](entwicklungsprozess.md) und
+- `main` ist durch Pull Requests und fünf Pflichtchecks geschützt. Kostenloser
+  Schema-Replay mit 27 Migrationen und 130 Prüfungen ist eingeführt. Maßgeblich:
+  [Entwicklungsprozess](entwicklungsprozess.md) und
   [Migrationsabgleich](supabase-migration-abgleich.md).
 - Beide Produktionsdomains sind erreichbar. UptimeRobot überwacht beide alle
-  fünf Minuten; Down-/Up-E-Mailalarm ist belegt. Sentry ist im EU-Projekt
-  produktiv ausgeliefert; Client-/Serverfehler und Regression-Alarme sind in
-  geschützter Vorschau geprüft. Dienstübersicht und Nachweise: [Betrieb](betrieb.md).
-- B2-Zugang, kostenlose Caps und Speicherbudget sind geprüft; das verschlüsselte
-  Repository ist initialisiert. Der produktive Export und verschlüsselte
-  B2-Upload sowie erneuter Download, Prüfsummen und Archivlesbarkeit sind im Lauf
-  `43475169764` belegt. Der isolierte Restore scheitert noch; Anwendungsabnahme
-  und Sicherungszeitplan bleiben offen beziehungsweise deaktiviert.
-- Rollen-, Tenant- und UI-Verträge stehen in [AGENTS.md](../AGENTS.md);
-  Datenbankregeln zusätzlich in [supabase/AGENTS.md](../supabase/AGENTS.md).
+  fünf Minuten mit belegten Down-/Up-E-Mails; Sentry ist im EU-Projekt produktiv,
+  Client-/Serverfehler und Regression-Alarme sind geprüft. Die maßgebliche
+  [Diensttabelle und Betriebsnachweise](betrieb.md#eingesetzte-dienste) bündeln
+  Aufgaben, kostenlosen Rahmen und Grenzen.
+- Der reguläre Gesamtlauf `43486494378` belegt aktuellen Export, verschlüsselten
+  B2-Upload und erneuten isolierten Datenbank-/Dateirestore mit RLS, Policies,
+  Katalog und erfolgreichem Cleanup. Die tatsächliche Anwendungsprobe
+  `43483076155` prüft
+  Storage-/Auth-API, Rollen-/Tenant-Fälle und zwei Browserfälle erfolgreich.
+- `BACKUP_ENABLED=true` und Kostenflag sind zurückgelesen. Täglicher Zeitplan
+  03:27 UTC ist aktiviert; erster tatsächlicher Cron-Lauf noch nicht beobachtet.
+  Monatsprobe umfasst Datenbank/Dateien, App-Probe bleibt separat manuell.
+- Rollen-, Tenant- und UI-Verträge: [AGENTS.md](../AGENTS.md), Datenbankregeln:
+  [supabase/AGENTS.md](../supabase/AGENTS.md).
 
 ## Nächster Schritt und Prüfgrenze
 
-- Vorhandenen Stand über den manuellen Restore-only-Workflow ohne neue
-  Quellzugriffe prüfen und die feste Restore-Fehlerphase eingrenzen. Repository
-  nicht erneut initialisieren. Erst nach vollständigem Sicherungs- und
-  Wiederherstellungsnachweis den Zeitplan aktivieren. Konkrete Browser-Prüfschritte:
-  [Betrieb](betrieb.md#manuelle-prüfung).
 - Sentry-Auftragsverarbeitungsvertrag durch den Betreiber prüfen und annehmen.
-  Keine neue Feature-Priorität festgelegt.
-- Die bereits belegten Live-Prüfungen ersetzen weder die ausstehende
-  Wiederherstellungsprobe noch eine vollständige Prüfung aller Anwendungsabläufe.
-  Vorhandene fremde lokale Änderungen sind nicht Teil dieser Abnahme.
+- Ersten geplanten Sicherungslauf und dessen E-Mail-Empfänger kontrollieren.
+  Repository nicht erneut initialisieren. Weiteres Wachstum unter den
+  bestehenden kostenlosen Caps beobachten; automatisches Pruning fehlt.
+- Konkrete Browser-Prüfschritte für beide Domains, Themes, Monitoring und Restore:
+  [Betrieb](betrieb.md#manuelle-prüfung). Die App-Probe belegt ihre benannten Fälle,
+  keine pauschale Abnahme aller Abläufe oder zugesicherte RPO/RTO.
+- Keine neue Feature-Priorität festgelegt. Fremde lokale Änderungen sind nicht
+  Teil dieser Abnahme.
 
 ## Vorhandene Planungen und Nachweise
 
 Historische Dokumente, keine automatisch freigegebene Aufgabenliste:
 
-- `.superpowers/sdd/progress.md`: nur lokal vorhandener Altstand, nicht im
-  öffentlichen Repository versioniert.
 - [docs/superpowers/plans/2026-06-06-auth-bereich-varianten.md](<../docs/superpowers/plans/2026-06-06-auth-bereich-varianten.md>)
 - [docs/superpowers/plans/2026-06-06-design-round-2-footer-profilleiste.md](<../docs/superpowers/plans/2026-06-06-design-round-2-footer-profilleiste.md>)
 - [docs/superpowers/plans/2026-06-07-consent-verwaltung.md](<../docs/superpowers/plans/2026-06-07-consent-verwaltung.md>)

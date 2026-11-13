@@ -167,13 +167,15 @@ export default async function DatenschutzPage() {
 
       <RechtstextSektion titel="Sicherungskopien">
         <p>
-          Für die Wiederherstellung nach einem Datenverlust haben wir eine
-          Sicherungskopie der Datenbank und gespeicherter Dateien manuell erstellt.
-          Sie wurde vor der Übertragung verschlüsselt und in einem privaten
+          Für die Wiederherstellung nach einem Datenverlust haben wir
+          Sicherungskopien der Datenbank und gespeicherter Dateien manuell erstellt.
+          Diese wurden vor der Übertragung verschlüsselt und in einem privaten
           Speicherbereich von Backblaze B2 Cloud Storage der Backblaze, Inc.
-          (USA) in der Region EU Central gespeichert. Ein regelmäßiger
-          Sicherungszeitplan ist derzeit nicht aktiviert. Die Wiederherstellung
-          der Datenbank aus der Sicherung ist noch nicht erfolgreich geprüft.
+          (USA) in der Region EU Central gespeichert. Weitere Sicherungen sind
+          täglich geplant; der erste planmäßige Lauf steht noch aus. Die
+          Wiederherstellung der Datenbank und gespeicherten Dateien sowie
+          zentrale Funktionen der WebApp wurden in einer isolierten Umgebung
+          erfolgreich geprüft.
         </p>
         <p>
           Für die Erstellung nutzen wir GitHub Actions von GitHub, Inc. (USA).
