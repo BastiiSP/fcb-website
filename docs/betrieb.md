@@ -11,7 +11,7 @@ Monitor und eine Migrationshistorie ist keine Datensicherung.
 | GitHub | Öffentliches Repository, Pull Requests, CI, Schema-Replay und Sicherungsworkflows | `main` geschützt; fünf Pflichtchecks; öffentliche Standardrunner; kein bezahlter Runner. [Prozess und Nachweise](entwicklungsprozess.md) |
 | Vercel | Bereitstellung derselben Anwendung für FCB und JFG | Beide Domains produktiv; kein kostenpflichtiges Observability Plus aktiviert |
 | Supabase | PostgreSQL, Auth und Storage | Free-Projekt; 27 Migrationen abgeglichen. Kostenpflichtiges natives Preview-Branching deaktiviert, kostenloser isolierter Schema-Replay aktiv. [Abgleich](supabase-migration-abgleich.md) |
-| Backblaze B2 | Verschlüsseltes externes Sicherungsziel | EU Central, privat, kein Zahlungsmittel, 0-Dollar-Caps; Repository initialisiert, vollständiger Sicherungs- und Restore-Lauf noch offen |
+| Backblaze B2 | Verschlüsseltes externes Sicherungsziel | EU Central, privat, kein Zahlungsmittel, 0-Dollar-Caps; Export verschlüsselt gespeichert und erneut heruntergeladen; isolierter Restore noch offen |
 | Sentry | Unbehandelte Client-, Server- und Edge-Fehler samt E-Mailalarm | EU-Projekt, Developer-Grundplan mit befristetem Test; SDK produktiv, beide Fehlerwege und Regression-Alarme in geschützter Vorschau belegt; Vertragsannahme offen |
 | UptimeRobot | Externe Erreichbarkeitsprüfung beider Domains | Free, zwei aktive HTTP-Monitore alle fünf Minuten; Down-/Up-E-Mails belegt; Testmonitor pausiert |
 
@@ -23,8 +23,8 @@ sind die maßgebliche Quelle für Einrichtung, Nachweise und verbleibende Grenze
 | Bereich | Befund | Nachweis oder Grenze |
 | --- | --- | --- |
 | Supabase | Projekt aktiv, PostgreSQL 17, Organisation im Free-Tarif | Projekt- und Organisationsabfrage über MCP |
-| Datenbanksicherung | B2-Zugang und Budget geprüft, Repository initialisiert; vollständiger Export und Restore noch offen | Letzter Sicherungslauf scheitert beim Snapshot an TLS; Zeitplan bleibt gesperrt |
-| Storage | Bucket `avatars`, öffentlich, Typ `STANDARD`, 4 Objekte mit insgesamt 96.391 Byte laut Metadaten | Nur aggregierte Live-Abfrage, keine Dateiinhalte exportiert |
+| Datenbanksicherung | Produktiver Export und verschlüsselter B2-Upload erfolgreich; Download, Prüfsummen und Archivlesbarkeit bestätigt | Lauf `43475169764`: isolierter Restore fehlgeschlagen; Zeitplan bleibt gesperrt |
+| Storage | Bucket `avatars`, öffentlich, Typ `STANDARD`; bestätigter Ausgangsbestand 4 Objekte mit insgesamt 96.391 Byte | Dateien zusätzlich zum Datenbankexport im verschlüsselten Backup enthalten; isolierter Wiederherstellungsnachweis offen |
 | Bucket-Grenzen | `file_size_limit` und `allowed_mime_types` sind jeweils `null` | Live-Metadaten, keine impliziten Grenzwerte als Konfiguration übernehmen |
 | Vercel | Runtime-Fehlergruppen sind lesbar | `TypeError: fetch failed` mit `ETIMEDOUT` auf `/` gefunden, letzter Treffer am 13.11.2026 um 06:50:22 UTC |
 | Öffentliche HTTP-Prüfung | Beide Domains liefern HTTP 200 und den richtigen Tenant | Erfolgreicher manueller Main-Lauf `43461402737`, geprüft am 13.11.2026 um 16:18:38 UTC |
@@ -34,7 +34,7 @@ sind die maßgebliche Quelle für Einrichtung, Nachweise und verbleibende Grenze
 
 Supabase empfiehlt im Free-Tarif eigene Exporte außerhalb des Projekts. Eine
 Datenbanksicherung umfasst nur Storage-Metadaten, nicht die gespeicherten
-Dateien. Die vier Avatar-Dateien müssen zusätzlich gesichert werden.
+Dateien. Der Sicherungslauf exportiert die Avatar-Dateien deshalb zusätzlich.
 
 ## Öffentliche HTTP-Prüfung
 
@@ -126,7 +126,7 @@ Dateien wurden bereinigt. Die zugehörige GitHub-Fehlermail ist um 16:47:07 UTC
 im Empfängerpostfach belegt. Das bestätigt die Zustellung für den manuellen
 Main-Lauf, nicht für den Zeitplan.
 
-Der jüngste [Sicherungslauf 43470959640](https://github.com/BastiiSP/fcb-website/actions/runs/43470959640)
+Der frühere [Sicherungslauf 43470959640](https://github.com/BastiiSP/fcb-website/actions/runs/43470959640)
 auf `main` (`8793e66`) scheiterte ebenfalls vor dem Exportabschluss. Die begrenzte
 Diagnose aus [PR #12](https://github.com/BastiiSP/fcb-website/pull/12) meldet
 `SNAPSHOT` und `TLS_SONSTIG`. Die anschließende anmeldungsfreie
@@ -134,10 +134,16 @@ Diagnose aus [PR #12](https://github.com/BastiiSP/fcb-website/pull/12) meldet
 bestätigt die Eingrenzung: System-CAs scheitern an der Zertifikatsprüfung, mit der
 offiziellen Supabase-CA werden TLS und Hostname bestätigt. Die Produktivkorrektur
 verwendet diese lokal versionierte CA mit festem SHA-256; `verify-full` bleibt
-aktiv. Ein vollständiger Snapshot und ein erfolgreicher B2-Download-Restore sind
-nicht nachgewiesen. Das restic-Repository wurde bereits initialisiert. Bei
-weiteren Läufen ausschließlich `initialize_repository=false` verwenden; die
-Initialisierung nicht wiederholen. `BACKUP_ENABLED` bleibt aus.
+aktiv.
+
+Der anschließende [Sicherungslauf 43475169764](https://github.com/BastiiSP/fcb-website/actions/runs/43475169764)
+auf `main` (`cde93b3`) hat den produktiven Export und verschlüsselten B2-Upload
+abgeschlossen. Erneuter Download, SHA-256-Prüfsummen und Lesbarkeit des
+Datenbankarchivs waren erfolgreich. Der nachfolgende isolierte Restore schlug
+fehl; private Dateien wurden anschließend bereinigt. Das ist noch kein
+vollständiger Wiederherstellungsnachweis. `BACKUP_ENABLED` bleibt aus. Das
+restic-Repository ist initialisiert und darf nicht erneut initialisiert werden.
+Weitere Restore-Proben verwenden den vorhandenen Stand ohne neuen Quellzugriff.
 
 ### GitHub Actions einrichten
 
@@ -211,10 +217,15 @@ Backup- und Restore-Schritte wurden übersprungen. Es wurden keine
 Produktionsdaten exportiert oder hochgeladen. Dies belegt den B2-Zugang und die
 Budgetprüfung, noch keine Sicherung oder Wiederherstellung.
 
-`BACKUP_ENABLED` bleibt aus. Den nächsten manuellen Modus `backup` nach Übernahme
-der geprüften TLS-Korrektur mit `initialize_repository=false` und
-`verify_restore=true` ausführen. Die einmalige Initialisierung ist abgeschlossen;
-sie darf nicht erneut gestartet werden.
+`BACKUP_ENABLED` bleibt aus. Für die nächste Wiederherstellungsprobe den
+manuellen Workflow `.github/workflows/backup-restore.yml` auf `main` ausführen.
+Er benötigt nur die vier B2-Secrets und das restic-Passwort. Er legt kein
+Repository an und liest weder Datenbank noch Supabase Storage erneut. Der
+neueste eindeutige Snapshot muss zu Host `fcb-website`, Tag `fcb-backup`,
+Payload, festem Projekt und PostgreSQL-Image passen. Kostenflag und bestehende
+Caps bleiben Voraussetzung, die gemeinsame Concurrency verhindert parallele
+Backup-Schreibvorgänge. Download und Archivprüfung laufen vor dem isolierten
+Restore; sämtliche privaten Dateien werden abschließend entfernt.
 
 Ein täglicher Zeitplan um 03:27 UTC ist vorbereitet. Er arbeitet erst mit
 `BACKUP_ENABLED=true`, diese Variable erst nach belegter Sicherung und Restore
@@ -290,7 +301,8 @@ nicht implementiert und nicht aktiviert. Da B2 auch alte Objektversionen
 aufbewahrt, kann das kostenlose Budget früher erreicht sein. RPO und RTO sind
 erst nach den echten Läufen messbar, bislang gibt es keine zugesicherte
 Wiederherstellungszeit. Mocktests, Budgettests, Storage-Tests, Syntax und Lint
-sind erfolgreich; ein erfolgreicher produktiver Export und Restore bleibt offen.
+sind erfolgreich. Produktiver Export und erneuter B2-Download sind belegt; der
+isolierte Restore bleibt offen.
 Ein kompletter
 synthetischer PostgreSQL-Export und Restore auf einem kostenlosen Actions-Runner
 ist inzwischen erfolgreich. Image-Initialisierung, Rollen, das JSON-Protokoll mit
@@ -499,10 +511,10 @@ manuell ausführen und reagiert automatisch ausschließlich auf den separaten
 Testbranch `codex/backup-synthetic-proof`. Er benötigt keine Produktionssecrets
 und hat keinen Zeitplan.
 
-Dieser Nachweis umfasst weder B2 noch Supabase Auth, die Storage-API oder
-Anwendungsabläufe. Ein produktives verschlüsseltes B2-Backup samt erneutem
-Download und Restore sowie die vollständige Rollen- und Tenant-Abnahme bleiben
-offen. Es wurden keine Produktionsdaten exportiert.
+Dieser synthetische Nachweis umfasst weder B2 noch Supabase Auth, die Storage-API
+oder Anwendungsabläufe. Der spätere produktive Export und erneute B2-Download
+sind oben separat belegt. Dessen isolierter Restore sowie die vollständige
+Rollen- und Tenant-Abnahme bleiben offen.
 
 ## Geprüfte SDK-Vorbereitung und bestehende Paketfunde
 
@@ -540,9 +552,9 @@ Aufgabe.
 ## Manuelle Prüfung
 
 - `https://www.fcbuku.de/datenschutz` öffnen → Stand November 2026 und Abschnitte
-  Sentry, UptimeRobot und geplante Sicherungskopien prüfen → FCB ist als
+  Sentry, UptimeRobot und Sicherungskopien prüfen → FCB ist als
   Verantwortlicher angegeben, Sportheim-Anfrage ist enthalten; Fehlermerkmale:
-  JFG-Verantwortlicher, fehlender Abschnitt oder behauptete fertige Sicherung.
+  JFG-Verantwortlicher, fehlender Abschnitt oder behaupteter erfolgreicher Restore.
 - `https://www.jfg-kunstadt-obermain.de/datenschutz` öffnen → dieselben
   Betriebsabschnitte prüfen → JFG ist als Verantwortlicher angegeben,
   Sportheim-Anfrage fehlt; Fehlermerkmale: FCB-Verantwortlicher oder
@@ -565,6 +577,10 @@ Aufgabe.
   zugestellte Nachricht, falsches Ziel.
 - Sentry → Settings → Legal öffnen und Vertragsstatus prüfen → Annahme durch den
   Betreiber dokumentiert; Fehlermerkmal: weiterhin „Review and Accept“.
+- GitHub Actions → „Vorhandene Sicherung isoliert wiederherstellen“ auf `main`
+  manuell starten → vorhandener B2-Stand wird ohne Quellzugriff geladen, Projekt,
+  Image und Archiv geprüft, dann isoliert wiederhergestellt; Fehlermerkmale:
+  mehrdeutiger Snapshot, fremdes Projekt, Fehlerphase oder fehlendes Cleanup.
 - Cloud-Ziel → letzten Sicherungsstand und Manifest prüfen → verschlüsseltes
   Archiv im bestätigten Zeitfenster; Fehlermerkmale: nur SQL ohne Storage,
   überalterter Stand, fehlender Prüfsummenvergleich.

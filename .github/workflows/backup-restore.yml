@@ -1,0 +1,128 @@
+name: Vorhandene Sicherung isoliert wiederherstellen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Keine parallele Änderung des Repositorys durch einen Sicherungslauf.
+concurrency:
+  group: verschluesselte-sicherung
+  cancel-in-progress: false
+
+jobs:
+  wiederherstellung:
+    name: Vorhandenen B2-Stand ohne Quellzugriff prüfen
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BACKUP_PROJECT_REF: jktvmckqfklfziszfsxf
+      BACKUP_POSTGRES_IMAGE: supabase/postgres@sha256:178f0976b54a39237096bfa310c1a352dbc82fb1b08dda45cdb8acb5d40c1426
+      BACKUP_FREE_TIER_CONFIRMED: ${{ vars.BACKUP_FREE_TIER_CONFIRMED }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_PAGER: ''
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Kostenfreiheit und isolierte Laufzeit vorbereiten
+        run: |
+          set -euo pipefail
+          test "${BACKUP_FREE_TIER_CONFIRMED}" = true || { echo 'Bestätigung ohne Zahlungsmittel, mit kostenlosen Caps und ohne Class-D-Dienste fehlt.'; exit 1; }
+          umask 077
+          mkdir -m 700 "${RUNNER_TEMP}/fcb-restore-private"
+          docker pull "${BACKUP_POSTGRES_IMAGE}" > "${RUNNER_TEMP}/fcb-restore-private/image.log" 2>&1
+          sudo apt-get update -qq > "${RUNNER_TEMP}/fcb-restore-private/install.log" 2>&1
+          sudo apt-get install -y -qq restic >> "${RUNNER_TEMP}/fcb-restore-private/install.log" 2>&1
+          command -v aws >/dev/null
+          test -x scripts/backup-pg-tool.sh
+      - name: Vorhandenes B2-Backup prüfen und isoliert wiederherstellen
+        env:
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_KEY }}
+          BACKUP_RESTIC_PASSWORD: ${{ secrets.BACKUP_RESTIC_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export TMPDIR="${RUNNER_TEMP}/fcb-restore-private"
+          export RESTIC_PASSWORD_FILE="${TMPDIR}/resticpass" RESTIC_CACHE_DIR="${TMPDIR}/cache"
+          export RESTIC_REPOSITORY="s3:${BACKUP_S3_ENDPOINT}/${BACKUP_S3_BUCKET}/fcb-website"
+          export AWS_DEFAULT_REGION="${BACKUP_S3_ENDPOINT#https://s3.}"
+          export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION%.backblazeb2.com}"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          password = os.environ.get('BACKUP_RESTIC_PASSWORD', '')
+          if len(password) < 32 or '\n' in password or '\r' in password:
+              raise SystemExit('Ein gültiges restic-Passwort mit mindestens 32 Zeichen fehlt.')
+          Path(os.environ['RESTIC_PASSWORD_FILE']).write_text(password)
+          PY
+          unset BACKUP_RESTIC_PASSWORD
+          mkdir -m 700 "${TMPDIR}/empty" "${TMPDIR}/bin" "${TMPDIR}/restored"
+          node scripts/backup-b2-budget.mjs "${TMPDIR}/empty"
+          if ! restic snapshots --host fcb-website --tag fcb-backup --json > "${TMPDIR}/snapshots.json" 2> "${TMPDIR}/snapshots-private.log"; then
+            echo 'Vorhandene Sicherungsstände konnten nicht gelesen werden.'; exit 1
+          fi
+          python3 - <<'PY'
+          import datetime, json, os, re
+          from pathlib import Path, PurePosixPath
+          try:
+              snapshots = json.loads((Path(os.environ['TMPDIR']) / 'snapshots.json').read_text())
+              if not isinstance(snapshots, list) or not snapshots:
+                  raise ValueError()
+              candidates = []
+              identifiers = set()
+              for snapshot in snapshots:
+                  identifier = snapshot.get('id', '')
+                  timestamp = datetime.datetime.fromisoformat(snapshot.get('time', '').replace('Z', '+00:00'))
+                  paths = snapshot.get('paths', [])
+                  if (not re.fullmatch('[a-f0-9]{64}', identifier) or identifier in identifiers
+                      or snapshot.get('hostname') != 'fcb-website' or snapshot.get('tags') != ['fcb-backup']
+                      or timestamp.tzinfo is None or not isinstance(paths, list) or len(paths) != 1
+                      or not isinstance(paths[0], str) or PurePosixPath(paths[0]).name != 'payload'):
+                      raise ValueError()
+                  identifiers.add(identifier)
+                  candidates.append((timestamp, identifier))
+              latest = max(timestamp for timestamp, _ in candidates)
+              selected = [identifier for timestamp, identifier in candidates if timestamp == latest]
+              if len(selected) != 1:
+                  raise ValueError()
+              (Path(os.environ['TMPDIR']) / 'snapshot-id').write_text(selected[0])
+          except (AttributeError, TypeError, ValueError, OSError):
+              raise SystemExit('Kein eindeutiger passender Sicherungsstand gefunden.') from None
+          PY
+          export PGPASSFILE="${TMPDIR}/empty-pgpass"
+          touch "${PGPASSFILE}"
+          ln -s "${GITHUB_WORKSPACE}/scripts/backup-pg-tool.sh" "${TMPDIR}/bin/pg_restore"
+          export PATH="${TMPDIR}/bin:${PATH}"
+          export BACKUP_ISOLATED_RESTORE=false
+          bash scripts/restore-verify.sh "$(cat "${TMPDIR}/snapshot-id")" "${TMPDIR}/restored"
+          # Erst nach Download und Prüfsummenprüfung das feste Projekt und Image bestätigen.
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          try:
+              manifests = list((Path(os.environ['TMPDIR']) / 'restored').rglob('backup.json'))
+              if len(manifests) != 1:
+                  raise ValueError()
+              manifest = json.loads(manifests[0].read_text())
+              if (manifest.get('projectRef') != os.environ['BACKUP_PROJECT_REF']
+                  or manifest.get('postgresImage') != os.environ['BACKUP_POSTGRES_IMAGE']):
+                  raise ValueError()
+              (Path(os.environ['TMPDIR']) / 'payload-path').write_text(str(manifests[0].parent))
+          except (AttributeError, TypeError, ValueError, OSError):
+              raise SystemExit('Sicherungsstand passt nicht zum bestätigten Projekt oder PostgreSQL-Image.') from None
+          PY
+          node scripts/restore-isolated.mjs "$(cat "${TMPDIR}/payload-path")"
+      - name: Private Dateien stets entfernen
+        if: ${{ always() }}
+        run: rm -rf -- "${RUNNER_TEMP}/fcb-restore-private"
