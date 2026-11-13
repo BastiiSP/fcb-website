@@ -10,6 +10,7 @@ async function main() {
 if (!process.argv[2]) throw new Error("Privates Restore-Ziel fehlt.");
 const destination = path.resolve(process.argv[2] ?? "");
 const name = `fcb-restore-${randomBytes(8).toString("hex")}`;
+const containerPassword = randomBytes(32).toString("hex");
 const log = await open(path.join(destination, "restore-private.log"), "wx", 0o600);
 const manifest = JSON.parse(await readFile(path.join(destination, "backup.json"), "utf8"));
 const storage = JSON.parse(await readFile(path.join(destination, "storage.json"), "utf8"));
@@ -19,14 +20,16 @@ function docker(args, input) {
   return result.stdout.trim();
 }
 function sql(query, database = "isolated_restore") {
-  return docker(["exec", "-i", name, "psql", "-XqAt", "-v", "ON_ERROR_STOP=1", "-U", "supabase_admin", "-d", database], query);
+  return docker(["exec", "-i", "-e", `PGPASSWORD=${containerPassword}`, name, "psql", "-XqAt", "-v", "ON_ERROR_STOP=1", "-U", "supabase_admin", "-d", database], query);
 }
 try {
   if (manifest.schemaVersion !== 2 || !/^17\./.test(manifest.serverVersion) || manifest.vaultSecrets !== 0 || !/^supabase\/postgres@sha256:[a-f0-9]{64}$/.test(manifest.postgresImage ?? "")) throw new Error("Nicht unterstützter Sicherungsvertrag.");
-  docker(["run", "--detach", "--name", name, "--network", "none", "--memory", "2g", "--cpus", "2", "--mount", `type=bind,source=${destination},target=/backup,readonly`, "-e", `POSTGRES_PASSWORD=${randomBytes(32).toString("hex")}`, manifest.postgresImage]);
+  docker(["run", "--detach", "--name", name, "--network", "none", "--memory", "2g", "--cpus", "2", "--mount", `type=bind,source=${destination},target=/backup,readonly`, "-e", `POSTGRES_PASSWORD=${containerPassword}`, manifest.postgresImage]);
   let ready = false;
   for (let attempt = 0; attempt < 90; attempt++) {
-    const status = spawnSync("docker", ["exec", name, "pg_isready", "-U", "supabase_admin"], { stdio: "ignore", timeout: 5000 });
+    // Der temporäre Initialisierungsserver lauscht nur am Unix-Socket und fährt
+    // nochmals herunter. TCP auf Loopback bestätigt erst den endgültigen Server.
+    const status = spawnSync("docker", ["exec", "-e", `PGPASSWORD=${containerPassword}`, name, "psql", "-XqAtw", "-h", "127.0.0.1", "-U", "supabase_admin", "-d", "postgres", "-c", "SELECT 1"], { stdio: "ignore", timeout: 5000 });
     if (status.status === 0) { ready = true; break; }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
@@ -39,8 +42,9 @@ try {
   }
   for (const membership of manifest.memberships) sql(`GRANT ${quote(membership.role)} TO ${quote(membership.member)} WITH ADMIN ${membership.admin ? "TRUE" : "FALSE"}, INHERIT ${membership.inherit ? "TRUE" : "FALSE"}, SET ${membership.set ? "TRUE" : "FALSE"};`, "postgres");
   sql("CREATE DATABASE isolated_restore TEMPLATE template0;", "postgres");
-  sql("DROP SCHEMA public CASCADE;");
-  docker(["exec", name, "pg_restore", "--exit-on-error", "--single-transaction", "--username=supabase_admin", "--dbname=isolated_restore", "/backup/database.dump"]);
+  // pg_dump setzt das Standardschema public voraus. Die neue template0-Datenbank
+  // enthält dort keine Anwendungsobjekte, das Schema muss für den Restore bleiben.
+  docker(["exec", "-e", `PGPASSWORD=${containerPassword}`, name, "pg_restore", "--exit-on-error", "--single-transaction", "--username=supabase_admin", "--dbname=isolated_restore", "/backup/database.dump"]);
   for (const table of manifest.tables) {
     const state = JSON.parse(sql(`SELECT json_build_object('rows',(SELECT count(*) FROM ${quote(table.schema)}.${quote(table.table)}),'rls',c.relrowsecurity,'forceRls',c.relforcerowsecurity) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=${literal(table.schema)} AND c.relname=${literal(table.table)};`));
     if (state.rows !== table.rows || state.rls !== table.rls || state.forceRls !== table.forceRls) throw new Error("Tabellenstand oder RLS weicht ab.");

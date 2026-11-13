@@ -212,11 +212,11 @@ nicht implementiert und nicht aktiviert. Da B2 auch alte Objektversionen
 aufbewahrt, kann das kostenlose Budget früher erreicht sein. RPO und RTO sind
 erst nach den echten Läufen messbar, bislang gibt es keine zugesicherte
 Wiederherstellungszeit. Mocktests, Budgettests, Storage-Tests, Syntax und Lint
-sind erfolgreich, ein echter API-Lauf mit Zugangsdaten bleibt offen. Vor Verwendung echter Daten
-ist zusätzlich ein kompletter synthetischer PostgreSQL-Export und Restore auf
-einem kostenlosen Actions-Runner zu prüfen. Damit werden Image-Initialisierung,
-Rollen, das JSON-Protokoll mit mehreren Katalogeinträgen und der reale
-`pg_restore` unabhängig von Live-Zugangsdaten erprobt.
+sind erfolgreich, ein echter API-Lauf mit Zugangsdaten bleibt offen. Ein kompletter
+synthetischer PostgreSQL-Export und Restore auf einem kostenlosen Actions-Runner
+ist inzwischen erfolgreich. Image-Initialisierung, Rollen, das JSON-Protokoll mit
+mehreren Katalogeinträgen und der reale `pg_restore` wurden damit unabhängig von
+Live-Zugangsdaten erprobt. Der genaue Nachweis steht weiter unten.
 
 ## Nachweis einer Wiederherstellung
 
@@ -353,6 +353,59 @@ wieder aktiviert hat. Diese Zuordnung muss auf Bastis GitHub-Konto zeigen.
 Ein erfolgreicher E-Mail-Test eines manuell gestarteten Laufs belegt allein noch
 nicht den Empfänger späterer Zeitplanalarme. Auch einen tatsächlichen geplanten
 Lauf und dessen auslösendes Konto prüfen.
+
+## Synthetischer Wiederherstellungsnachweis
+
+Der [erfolgreiche PostgreSQL-17-Prüflauf](https://github.com/BastiiSP/fcb-website/actions/runs/43417624819)
+verwendet ausschließlich erfundene Daten. Er exportiert mit dem unveränderten
+Sicherungsmodul aus einem netzwerkisolierten PostgreSQL-17-Container, verschlüsselt
+den Export in einem lokalen restic-Repository, lädt ihn daraus erneut und prüft
+die Wiederherstellung in einem zweiten Container mit `--network none`.
+Tabellenstände, RLS-Policies, Funktionen, Trigger, Constraints, Grants, Sequenzen
+und eine synthetische Storage-Datei wurden verglichen. Die Zeilenzahl der
+synthetischen Quelltabelle blieb vor und nach dem Export unverändert.
+
+Der echte Lauf hat drei im isolierten Restore korrigierte Fehler aufgedeckt:
+fehlende lokale Passwortübergabe, zu frühe Bereitschaft am temporären
+Initialisierungsserver und das Löschen des benötigten Standardschemas `public`.
+Die endgültige Bereitschaft wird jetzt durch einen authentisierten TCP-SELECT
+auf Loopback geprüft. Es werden keine Containerports veröffentlicht.
+
+Der Prüfer `scripts/backup-synthetic.test.sh`, seine SQL-Fixture und der Workflow
+`backup-synthetic.yml` bleiben reproduzierbar erhalten. Der Workflow lässt sich
+manuell ausführen und reagiert automatisch ausschließlich auf den separaten
+Testbranch `codex/backup-synthetic-proof`. Er benötigt keine Produktionssecrets
+und hat keinen Zeitplan.
+
+Dieser Nachweis umfasst weder B2 noch Supabase Auth, die Storage-API oder
+Anwendungsabläufe. Ein produktives verschlüsseltes B2-Backup samt erneutem
+Download und Restore sowie die vollständige Rollen- und Tenant-Abnahme bleiben
+offen. Es wurden keine Produktionsdaten exportiert.
+
+## Geprüfte SDK-Vorbereitung und bestehende Paketfunde
+
+Die Sentry-Einführung mit SDK `11.12.0` liegt in
+[Entwurf PR #9](https://github.com/BastiiSP/fcb-website/pull/9), Stand
+`ffa1d5cc8f0eb2158e23f74ecc5bc9e5c11de3ca`. Alle fünf Pflichtprüfungen
+sind erfolgreich. 39 Unit-Tests einschließlich einer echten SDK-Probe mit
+In-Memory-Transport prüfen das Filtern synthetischer vertraulicher Inhalte und
+Anhänge. Das belegt weder die Zustellung an Sentry noch eine Alarm-E-Mail.
+Echte Vorschauereignisse aus Browser und Server sowie die empfangenen Alarmmails
+bleiben offen. Die Änderung ist noch nicht gemergt.
+
+Der erfolgreiche
+[Auditvergleich](https://github.com/BastiiSP/fcb-website/actions/runs/43414322205)
+meldet für `main` und den Sentry-Stand dieselben 19 Paketfunde: 11 moderate,
+7 hohe und einen kritischen Fund. Bei Beschränkung auf Produktionsabhängigkeiten
+bleiben 11 Paketfunde. Sentry hat in diesem Vergleich keine neuen Funde ergänzt.
+Installiert ist Next.js `16.2.10`. Die geprüften GitHub-Advisories
+[GHSA-2464-fhr4-w9xw](https://github.com/advisories/GHSA-2464-fhr4-w9xw)
+und [GHSA-673q-mjm6-r5xr](https://github.com/advisories/GHSA-673q-mjm6-r5xr)
+nennen für Next.js 16 die Version `16.4.1` als gepatcht. Ihre Voraussetzungen
+betreffen Bildoptimierung unter glibc/Linux beziehungsweise bestimmte
+Cache-Components-Rückgaben. Die konkrete Ausnutzbarkeit dieser Anwendung wurde
+nicht geprüft. Ein Upgrade wurde nicht durchgeführt und bleibt eine eigene
+Aufgabe.
 
 ## Manuelle Prüfung
 
