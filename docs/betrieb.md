@@ -19,12 +19,12 @@ Datenbank-Restore noch keine Anwendungsabnahme.
 
 | Prüfung | Ergebnis | Nachweis oder Grenze |
 | --- | --- | --- |
-| Produktionsauftritte | Beide Marken erreichbar und korrekt ausgeliefert | Manueller [HTTP-Lauf 43461402737](https://github.com/BastiiSP/fcb-website/actions/runs/43461402737); Datenschutz zusätzlich auf beiden Domains im Browser geprüft |
+| Produktionsauftritte | Beide Marken mit HTTP 200 und richtigem Tenant erreichbar | Geplanter [HTTP-Lauf 43521509487](https://github.com/BastiiSP/fcb-website/actions/runs/43521509487) auf `fb8fe731`, Messung 13.11.2026 um 22:43:05 UTC. Start- und Datenschutzseiten beider Marken in beiden Themes visuell geprüft; JFG nach Neuladen ohne Sportheim-Text |
 | Verschlüsseltes Backup | Aktueller regulärer Export und B2-Upload erfolgreich | [Lauf 43486494378](https://github.com/BastiiSP/fcb-website/actions/runs/43486494378) auf `e0a82c8`; exakte neue Snapshot-ID, keine erneute Initialisierung |
 | Datenbank-/Dateirestore | Im selben regulären Lauf: erneuter B2-Download, SHA-256, Archiv, Import, Tabellen, RLS, Policies, Katalog und Storage-Dateien erfolgreich | [Lauf 43486494378](https://github.com/BastiiSP/fcb-website/actions/runs/43486494378); sämtliche Schritte und Cleanup erfolgreich |
 | App-Vorprüfung | Helpertests einschließlich echtem Gateway-TLS und öffentlicher App-Build erfolgreich | [Lauf 43482402751](https://github.com/BastiiSP/fcb-website/actions/runs/43482402751), PR #18; ausschließlich synthetische Vorbereitung |
 | Anwendungsprobe | Storage-/Auth-API, Rollen- und Tenant-Prüfung sowie zwei Browserfälle erfolgreich | [Lauf 43483076155](https://github.com/BastiiSP/fcb-website/actions/runs/43483076155) auf `ec0322e` mit `verify_application=true`; Cleanup erfolgreich |
-| Sicherungszeitplan | Täglich 03:27 UTC aktiviert | `BACKUP_ENABLED=true` und `BACKUP_FREE_TIER_CONFIRMED=true` am 13.11.2026 gegen 18:35 UTC zurückgelesen; erster Cron-Lauf noch nicht beobachtet |
+| Sicherungszeitplan | Täglich 03:27 UTC aktiviert, erstes Fenster noch nicht erreicht | Beide Flags am 13.11.2026 gegen 18:35 UTC zurückgelesen; erster Termin danach 14.11.2026 um 03:27 UTC (04:27 Uhr Berlin). Actions-Abfrage am 13.11.2026 um 22:48 UTC: kein Sicherungslauf mit `event=schedule` |
 
 Die beauftragte Anwendungsprobe umfasst alle gesicherten Dateien über lokale
 Storage-API mit erneutem Download und Byte-/SHA-256-Vergleich, sieben synthetische
@@ -121,9 +121,12 @@ privaten Datei. Erst nach dem unveränderten Datenbank-/Dateivergleich startet
 die optionale Anwendungsprobe. Der Workflow bereinigt App-Images und private
 Dateien auch nach Fehlern. Beide Datenworkflows teilen eine Concurrency-Sperre.
 
-Der tägliche Export um 03:27 UTC ist aktiviert. Am ersten Monatstag folgt ein
-zusätzlicher Download mit isoliertem Datenbank-/Dateirestore. Der erste
-tatsächliche Cron-Lauf ist noch nicht beobachtet. Die vollständige App-Probe ist
+Der tägliche Export um 03:27 UTC ist aktiviert. Das erste Zeitfenster nach der
+Aktivierung ist am 14.11.2026 um 03:27 UTC (04:27 Uhr Berlin); bei der Prüfung
+am 13.11.2026 um 22:48 UTC lag noch kein geplanter Sicherungslauf vor. Der
+erfolgreiche Lauf `43486494378` wurde manuell ausgelöst (`workflow_dispatch`).
+Am ersten Monatstag folgt ein zusätzlicher Download mit isoliertem
+Datenbank-/Dateirestore. Die vollständige App-Probe ist
 separat manuell auszuführen. GitHub-Zeitpläne haben keine garantierte Startzeit,
 können ausbleiben und werden bei öffentlichen Repositories nach 60 Tagen ohne
 Aktivität deaktiviert. Tatsächlichen geplanten Lauf und Empfängerzuordnung
@@ -163,10 +166,39 @@ vorher in einem privaten Verzeichnis. Keine Dumps, Dateien, Metadaten oder
 Diagnosen werden als Actions-Artefakte veröffentlicht; Verzeichnisse werden am
 Ende entfernt. Das belegt keine sichere Löschung kompromittierter Datenträger.
 
-Vorgeschlagene Aufbewahrung: sieben Tages-, vier Wochen- und sechs Monatsstände.
-Automatisches Löschen/Pruning ist nicht implementiert; alte B2-Versionen zählen
-zum Budget. Es gibt keine zugesicherte RPO oder RTO. Die beauftragte Anwendungsprobe ist
-belegt; die erste tatsächliche geplante Ausführung steht noch aus.
+Automatisches Löschen/Pruning ist nicht implementiert; sämtliche alten
+B2-Versionen zählen zum Budget. Das folgende Aufbewahrungskonzept ist noch
+nicht freigegeben oder ausgeführt. Es gibt keine zugesicherte RPO oder RTO.
+Die beauftragte Anwendungsprobe ist belegt; die erste tatsächliche geplante
+Sicherung steht noch aus.
+
+### Aufbewahrung vorbereiten
+
+Vorschlag: den jeweils jüngsten Stand aus sieben Tagen, vier Wochen und sechs
+Monaten mit vorhandenen Sicherungen behalten. Die Gruppen überlappen; daraus
+folgen weder genau 17 Stände noch bei Ausfällen sechs lückenlose Kalendermonate.
+Zunächst ausschließlich lesend Snapshots, Host/Tags, Payloadpfade, alle
+B2-Versionen und Löschmarker, physische Bytes, Lifecycle und Caps inventarisieren.
+Die wechselnden temporären Payloadpfade erfordern eine bewusste Gruppierung.
+Erst nach geprüfter Inventur wäre diese Vorschau sinnvoll:
+
+```sh
+restic forget --dry-run --json --host fcb-website --tag fcb-backup --group-by host --keep-daily 7 --keep-weekly 4 --keep-monthly 6
+```
+
+B2 über S3 behält mit „alle Versionen behalten“ auch durch `prune` versteckte
+Dateien; dadurch wird noch kein physischer Speicher frei. Als separat
+freizugebender Lifecycle-Vorschlag käme nur der Repository-Präfix `fcb-website/`
+mit Löschung sieben Tage nach dem Verstecken infrage, ohne altersbedingtes
+Verstecken aktueller Objekte oder überlappende Regeln. Der Anbieter verarbeitet
+Regeln täglich; das ist kein exakt siebentägiger Löschtermin.
+
+Vor echten Löschungen, `forget`, `prune` oder einer Lifecycle-Änderung sind die
+konkret entfallenden Stände, verbleibenden Wiederherstellungsmöglichkeiten und
+ein aktueller Restorebeleg vorzulegen und durch den Betreiber freizugeben.
+Temporärer Platzbedarf, Downloads und API-Aufrufe von `prune` müssen innerhalb
+der bestehenden Caps bleiben. Einsparungen zählen erst nach tatsächlichem
+Versionsabbau; 8-GB-Grenze und Budgetformel werden nicht gelockert.
 
 ### Wiederherstellungsvertrag
 
@@ -218,9 +250,15 @@ Er erwartet je Domain direkten HTTP-200-HTML-Inhalt mit richtigem `data-tenant`;
 Weiterleitungen sind Fehler. Pro Anfrage gelten 20 Sekunden und 2 MiB. Ausgaben
 enthalten nur Prüfzeit, Tenant, Ergebnis, festen Fehlercode, Status und Dauer.
 Die Probe belegt DNS/TLS/HTTP und Marke, keine Anmeldung, JavaScript oder BFV.
-Der Workflow `availability.yml` ist aktiv und auf `main`, ein tatsächlicher
-geplanter Lauf ist bisher nicht belegt. UptimeRobot ist der nachgewiesen
-laufende unabhängige Verfügbarkeitsmonitor.
+Der Workflow `availability.yml` ist auf `main` aktiv. Die geplanten Läufe
+[43471758781](https://github.com/BastiiSP/fcb-website/actions/runs/43471758781)
+(13.11.2026, 17:20:05 UTC) und
+[43521509487](https://github.com/BastiiSP/fcb-website/actions/runs/43521509487)
+(22:42:51 UTC) sind mit `event=schedule` und `success` belegt. Beim jüngeren
+Lauf waren sechs Helpertests und beide HTTP-/Tenant-Prüfungen erfolgreich;
+die kontrollierte Alarmprobe war erwartungsgemäß übersprungen. Die wenigen
+beobachteten Läufe belegen kein durchgehend eingehaltenes Zehn-Minuten-Intervall.
+UptimeRobot bleibt der unabhängige Verfügbarkeitsmonitor.
 
 GitHub-Fehlermailzustellung ist durch Schema-Replay sowie die gezielte
 [Verfügbarkeits-Alarmprobe 43398573784](https://github.com/BastiiSP/fcb-website/actions/runs/43398573784)
@@ -232,8 +270,11 @@ Für eine erneute gezielte GitHub-Probe `availability.yml` auf `main` zunächst
 normal, dann mit `test_alert=true` ausführen und eingegangene E-Mail eindeutig
 zuordnen. Danach wieder normal erfolgreich ausführen. Bei Zeitplänen richtet
 GitHub Benachrichtigungen an Ersteller, letzten Cron-Bearbeiter oder
-Wiederaktivierer; diese Zuordnung auf das Betreiberkonto prüfen. Ein manueller
-E-Mailtest belegt sie nicht. Wiederherstellungsmails nicht ungeprüft voraussetzen.
+Wiederaktivierer. Bei beiden geplanten HTTP-Läufen meldet GitHub
+`actor=triggering_actor=BastiiSP`. Das belegt die Ausführung unter dem
+Betreiberkonto, aber keine E-Mail-Einstellung oder Zustellung für Zeitplanfehler.
+Diese Empfängerprüfung bleibt offen. Ein manueller E-Mailtest ersetzt sie nicht.
+Wiederherstellungsmails nicht ungeprüft voraussetzen.
 
 ## Sentry
 
@@ -243,13 +284,15 @@ kostenpflichtig verlängert. Im Developer-Tarif werden nach Quotenausschöpfung
 keine weiteren Ereignisse angenommen. E-Mailalarme brauchen kein bezahltes
 Upgrade. Vercel Observability Plus ist nicht aktiviert.
 
-Unter **Settings → Legal** steht weiterhin „Review and Accept“. Der Betreiber
-muss den Auftragsverarbeitungsvertrag noch prüfen und annehmen. EU-Datenregion
-ist bestätigt; Freigaben zur Produktverbesserung mit identifizierenden Daten
-sind aus. Dies ist keine bereits abgeschlossene Vertragsannahme.
+Unter **Settings → Legal** steht bei der erneuten Kontoprüfung weiterhin
+„Review and Accept“ für DPA 5.1.0 vom 29.05.2024. Der Betreiber muss zunächst
+Vertragszuordnung und Vertretungsberechtigung klären und den Vertrag dann
+prüfen und annehmen. EU-Datenregion ist bestätigt; Freigaben zur
+Produktverbesserung mit identifizierenden Daten sind aus. Die Vertragsannahme
+ist weiterhin offen.
 
-Fehlerdaten stehen im Developer-Tarif 30 Tage, in neuen Testphasen standardmäßig
-90 Tage zur Verfügung. Der Tarif beim Ereigniseingang bestimmt die Frist;
+Fehlerereignisse stehen im Developer-Tarif 30 Tage, in neuen Testphasen
+standardmäßig 90 Tage zur Verfügung. Der Tarif beim Ereigniseingang bestimmt die Frist;
 späterer Tarifwechsel verkürzt ältere Ereignisse nicht rückwirkend.
 
 Das SDK aus [PR #9](https://github.com/BastiiSP/fcb-website/pull/9) ist produktiv.
@@ -272,19 +315,37 @@ Header und Inhalte müssen vor bewusster zusätzlicher Erfassung gefiltert werde
 Die Datenschutzseite beschreibt die erstellte manuelle Sicherung, den
 aktivierten täglichen Zeitplan, den noch ausstehenden ersten Cron-Lauf und die
 erfolgreiche isolierte Wiederherstellungsprüfung. Verantwortlicher und
-Sportheim-Abschnitt bleiben tenantabhängig. Beide Marken und Themes sind mit
-den unten stehenden Schritten nach Auslieferung des Abschlussstands zu prüfen.
+Sportheim-Abschnitt bleiben tenantabhängig. Beide Marken und Themes wurden auf
+dem ausgelieferten Stand `fb8fe731` geprüft;
+JFG enthält nach Neuladen keine Sportheim-Teilsätze, FCB enthält sie. Das
+Vercel-Produktionsdeployment zu diesem Commit ist `READY`. Die Prüfung nach
+Auslieferung neuer Änderungen bleibt mit den unten stehenden Schritten nötig.
 
-## Bestehende Wartungsaufgabe
+## Sicherheitswartung
 
-Der [Auditvergleich 43414322205](https://github.com/BastiiSP/fcb-website/actions/runs/43414322205)
-meldete am geprüften Stand für `main` und Sentry dieselben 19 Paketfunde
-(11 moderate, sieben hohe, einer kritisch), davon elf in Produktionsabhängigkeiten.
-Sentry fügte keine hinzu. Installiert war Next.js `16.2.10`; die geprüften
-[GHSA-2464-fhr4-w9xw](https://github.com/advisories/GHSA-2464-fhr4-w9xw) und
-[GHSA-673q-mjm6-r5xr](https://github.com/advisories/GHSA-673q-mjm6-r5xr) nennen
-`16.4.1` als gepatcht. Konkrete Ausnutzbarkeit und Upgrade bleiben eine eigene
-Wartungsaufgabe, kein erledigter Bestandteil dieses Betriebsauftrags.
+Im aktuellen Arbeitsstand sind Next.js auf `16.4.5` und `sharp` auf `0.35.5`
+aktualisiert. Auf diesem Update-Branch bestanden lokal Lint (eine bestehende
+Warnung), TypeScript einschließlich Typegen, 39 Unit-Tests, Produktionsbuild
+und 19 Tenant-/Datenschutz-E2E-Fälle. Vor PR-Einreichung lokal geprüft;
+CI- und Auslieferungsnachweise werden im zugehörigen Sicherheits-PR geführt. Ohne produktive Umgebungswerte waren
+Instagram und Sportheim-Belegung nicht abrufbar; deren Integrationen sind
+mit diesem Lauf nicht bestätigt. Die lokale Prüfung belegt keine
+Produktionsauslieferung.
+
+Der neue lokale Audit meldet 15 betroffene Pakete (vier hohe, elf moderate,
+keine kritischen Funde), mit `--omit=dev` sieben (zwei hohe, fünf moderate),
+jeweils ohne Next.js-Meldung. Die verbleibenden hohen Produktionsfunde betreffen
+`brace-expansion` und `source-map-js`; ihre konkrete Ausnutzbarkeit ist nicht
+geprüft. Dieser Rest bleibt eine Wartungsaufgabe.
+
+Der historische [Auditvergleich 43414322205](https://github.com/BastiiSP/fcb-website/actions/runs/43414322205)
+meldete zuvor für `main` und Sentry dieselben 19 Paketfunde (elf moderate,
+sieben hohe, einer kritisch), davon elf in Produktionsabhängigkeiten. Sentry
+fügte keine hinzu. Die damals installierte Next.js-Version `16.2.10` lag unter
+der in [GHSA-2464-fhr4-w9xw](https://github.com/advisories/GHSA-2464-fhr4-w9xw)
+und [GHSA-673q-mjm6-r5xr](https://github.com/advisories/GHSA-673q-mjm6-r5xr)
+genannten Fehlerbehebung `16.4.1`. Historischer Workflow und neue lokale
+Prüfungen gelten jeweils nur für ihren bezeichneten Stand.
 
 ## Manuelle Prüfung
 
@@ -309,15 +370,21 @@ Wartungsaufgabe, kein erledigter Bestandteil dieses Betriebsauftrags.
   Fehlerphase, fremdes Projekt/Image, Datenartefakte oder fehlende Bereinigung.
 - Sentry → Settings → Legal öffnen → Betreiberannahme dokumentiert;
   Fehlermerkmal: weiterhin „Review and Accept“.
-- GitHub Repository-Variablen und Actions prüfen → Sicherungszeitplan täglich 03:27 UTC
-  aktiviert; ersten tatsächlichen Cron-Lauf und Empfänger noch prüfen;
-  Fehlermerkmale: voreilige Aktivierung, nur manuelle Läufe oder falscher Empfänger.
+- GitHub Actions → nach dem ersten Termin am 14.11.2026 um 03:27 UTC
+  (04:27 Uhr Berlin) den Sicherungslauf öffnen → `event=schedule`, neuer Export,
+  verschlüsselter Upload, erfolgreiche Budgetprüfung und Cleanup; anschließend
+  Benachrichtigungseinstellung dem Betreiberkonto zuordnen. Fehlermerkmale:
+  nur `workflow_dispatch`, übersprungener Sicherungsjob, Fehler oder fehlendes
+  Cleanup. Verzögerungen sind möglich; ein fehlender Lauf ist kein Erfolgsbeleg.
 
 ## Quellen
 
 - [Supabase: Database Backups](https://supabase.com/docs/guides/platform/backups)
 - [Supabase: CLI Backup und Restore](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore)
 - [Backblaze B2: Kostenlimits](https://www.backblaze.com/docs/cloud-storage-data-caps-and-alerts)
+- [Backblaze B2: Lifecycle-Regeln](https://www.backblaze.com/docs/cloud-storage-lifecycle-rules)
+- [restic: Backblaze B2 über S3 und alte Versionen](https://restic.readthedocs.io/en/stable/030_preparing_a_new_repo.html#backblaze-b2)
+- [restic: Aufbewahrung und Gruppierung](https://restic.readthedocs.io/en/stable/060_forget.html)
 - [Sentry: Developer-Tarif](https://sentry.io/pricing/)
 - [Sentry: Keine Mehrverbrauchsabrechnung im Developer-Tarif](https://www.sentry.help/en/articles/13965037-can-i-set-up-an-on-demand-pay-as-you-go-budget-for-my-free-developer-plan)
 - [Sentry: Aufbewahrungsfristen](https://docs.sentry.io/security-legal-pii/security/data-retention-periods/)
