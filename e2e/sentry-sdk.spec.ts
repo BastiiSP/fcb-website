@@ -3,6 +3,10 @@ import * as Sentry from "@sentry/nextjs";
 import { datenschutzIntegration } from "../src/lib/sentry-integration";
 import { bereinigeSentryEvent, sentryDatenminimierung } from "../src/lib/sentry-privacy";
 
+type SdkOptionen = NonNullable<Parameters<typeof Sentry.init>[0]>;
+type SdkTransport = ReturnType<NonNullable<SdkOptionen["transport"]>>;
+type SdkEnvelope = Parameters<SdkTransport["send"]>[0];
+
 test("SDK-Transport bereinigt auch interne Fehler und entfernt Anhänge", async () => {
   const marker = "PRIVATE_MARKER_SENTRY_TEST";
   const envelopes: unknown[] = [];
@@ -24,7 +28,7 @@ test("SDK-Transport bereinigt auch interne Fehler und entfernt Anhänge", async 
       return bereinigeSentryEvent(event, metadaten);
     },
     transport: () => ({
-      send: async (envelope) => {
+      send: async (envelope: SdkEnvelope) => {
         envelopes.push(envelope);
         return { statusCode: 200 };
       },
