@@ -1,0 +1,5 @@
+.namenseingabe input {
+  font-family: var(--schrift-unterschrift);
+  font-size: 2rem;
+  line-height: 1.4;
+}
