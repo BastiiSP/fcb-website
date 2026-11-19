@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 
 const PFAD = "/beitritt/vereinsaufnahme";
 const TEST_IBAN = "DE36 0000 0000 0000 0000 00";
@@ -42,6 +42,37 @@ async function zeichnen(page: Page) {
   await page.getByRole("button", { name: "Unterschrift bestätigen", exact: true }).click();
 }
 
+async function signaturpunkte(bild: Locator, xAnteile: number[]) {
+  return bild.evaluate(async (element, anteile) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 240;
+    const kontext = canvas.getContext("2d");
+    if (!kontext) throw new Error("Canvas-Kontext fehlt");
+
+    // SVG und PNG gleich prüfen, auch wenn sich die SVG-Elemente ändern.
+    const quelle = new Image();
+    if (element instanceof SVGSVGElement) {
+      const svg = element.cloneNode(true) as SVGSVGElement;
+      svg.setAttribute("width", String(canvas.width));
+      svg.setAttribute("height", String(canvas.height));
+      quelle.src = "data:image/svg+xml," + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+    } else if (element instanceof HTMLImageElement) {
+      quelle.src = element.src;
+    } else {
+      throw new Error("Signaturbild fehlt");
+    }
+    await quelle.decode();
+    kontext.drawImage(quelle, 0, 0, canvas.width, canvas.height);
+
+    return anteile.map((anteil) => {
+      const x = Math.round(anteil * canvas.width);
+      const pixel = kontext.getImageData(x - 3, canvas.height / 2 - 4, 7, 8).data;
+      return pixel.some((wert, index) => index % 4 === 3 && wert > 100);
+    });
+  }, xAnteile);
+}
+
 test("FCB liefert für den direkten Aufruf eine 404", async ({ page }) => {
   const antwort = await page.goto(PFAD + "?tenant=fcb");
   expect(antwort?.status()).toBe(404);
@@ -58,6 +89,86 @@ test("volljähriges Mitglied und Kontoinhaber unterschreiben separat", async ({ 
   await expect(page.getByRole("heading", { name: "SEPA-Lastschriftmandat unterschreiben" })).toBeVisible();
   await zeichnen(page);
   await expect(page.getByRole("button", { name: "PDF herunterladen" })).toBeEnabled();
+});
+
+test.describe("Punkte und kurze Unterschriftsstriche", () => {
+  test.use({ hasTouch: true });
+
+  test("Mauspunkt, Fingertipp und schnelle Striche bleiben einzeln im Zeichenfeld und im PNG sichtbar", async ({ page }) => {
+    await page.goto(PFAD + "?tenant=jfg");
+    await datenEingeben(page, false);
+    await page.getByRole("button", { name: /^Unterschreiben\b/ }).click();
+    const flaeche = page.getByRole("img", { name: "Zeichenfläche für die Unterschrift" });
+    await flaeche.scrollIntoViewIfNeeded();
+    const box = await flaeche.boundingBox();
+    if (!box) throw new Error("Zeichenfläche fehlt");
+
+    const x = (anteil: number) => box.x + box.width * anteil;
+    const y = box.y + box.height / 2;
+    await page.mouse.click(x(0.15), y);
+    await page.touchscreen.tap(x(0.3), y);
+    // Ein einzelnes Bewegungsereignis je Strich, deutlich unter der alten Mindestlänge.
+    for (const anteil of [0.6, 0.8]) {
+      await page.mouse.move(x(anteil), y);
+      await page.mouse.down();
+      await page.mouse.move(x(anteil + 4 / 600), y);
+      await page.mouse.up();
+    }
+
+    const stellen = [0.15, 0.225, 0.3, 0.45, 0.6, 0.7, 0.8];
+    const erwartet = [true, false, true, false, true, false, true];
+    await expect.poll(() => signaturpunkte(flaeche, stellen)).toEqual(erwartet);
+    await page.getByRole("button", { name: "Unterschrift übernehmen", exact: true }).click();
+    const png = page.getByRole("img", { name: /^Übernommene Unterschrift/ });
+    await expect(png).toHaveAttribute("src", /^data:image\/png;base64,/);
+    expect(await signaturpunkte(png, stellen)).toEqual(erwartet);
+  });
+});
+
+test("Namenseingabe nutzt lokal geladene Handschrift im Feld und im Druckbild", async ({ page }) => {
+  const schriftdateien: string[] = [];
+  page.on("response", (antwort) => {
+    if (antwort.request().resourceType() === "font" && antwort.ok()) schriftdateien.push(antwort.url());
+  });
+  const textausgabe: { text: string; schrift: string }[] = [];
+  await page.exposeFunction("protokolliereSignaturtext", (text: string, schrift: string) => {
+    textausgabe.push({ text, schrift });
+  });
+  await page.addInitScript(() => {
+    const protokoll = window as typeof window & { protokolliereSignaturtext: (text: string, schrift: string) => void };
+    const fillText = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (...argumente) {
+      protokoll.protokolliereSignaturtext(argumente[0], this.font);
+      fillText.apply(this, argumente);
+    };
+  });
+
+  await page.goto(PFAD + "?tenant=jfg");
+  await datenEingeben(page, false);
+  await page.getByRole("button", { name: /^Unterschreiben\b/ }).click();
+  await page.getByRole("button", { name: "Namen eingeben", exact: true }).click();
+  const namensfeld = page.getByRole("textbox", { name: "Vollständiger Name" });
+  const name = "Jona Formulartest";
+  await namensfeld.fill(name);
+  await expect(namensfeld).toHaveCSS("font-family", /Allura/i);
+  const handschrift = await namensfeld.evaluate((feld) =>
+    getComputedStyle(feld).fontFamily.split(",")[0].trim().replace(/^['"]|['"]$/g, "")
+  );
+  expect(handschrift).toMatch(/Allura/i);
+  await expect.poll(() => page.evaluate((familie) =>
+    Array.from(document.fonts).some((schrift) => schrift.family === familie && schrift.status === "loaded"),
+    handschrift
+  )).toBe(true);
+  expect(schriftdateien.length).toBeGreaterThan(0);
+  expect(schriftdateien.every((url) => new URL(url).origin === new URL(page.url()).origin)).toBe(true);
+
+  await page.getByRole("button", { name: "Unterschrift übernehmen", exact: true }).click();
+  await expect(page.getByRole("img", { name: /^Übernommene Unterschrift/ }))
+    .toHaveAttribute("src", /^data:image\/png;base64,/);
+  await expect.poll(() => textausgabe).toEqual(expect.arrayContaining([
+    expect.objectContaining({ text: "Unterschrift per Namenseingabe" }),
+    expect.objectContaining({ text: name, schrift: expect.stringContaining(handschrift) }),
+  ]));
 });
 
 test("Minderjährige auf dem Handy: drei Nachweise, Korrektur und lokaler PDF-Download", async ({ page }) => {

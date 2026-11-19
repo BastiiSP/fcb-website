@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useId, useRef, useState, type PointerEvent } from "react";
+import { Allura } from "next/font/google";
+import styles from "./Unterschriftsfeld.module.css";
+import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
 import Banner from "@/components/ui/Banner";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -22,12 +24,21 @@ interface Punkt {
 interface AktiverStrich {
   zeiger: number;
   punkte: Punkt[];
-  laenge: number;
 }
 
 const BREITE = 600;
 const HOEHE = 240;
 const STRICHBREITE = 4;
+
+const handschrift = Allura({
+  weight: "400",
+  subsets: ["latin", "latin-ext"],
+  variable: "--schrift-unterschrift",
+  adjustFontFallback: false,
+  fallback: ["cursive"],
+  preload: false,
+});
+const CANVAS_HANDSCHRIFT = `64px ${handschrift.style.fontFamily}`;
 
 function zeichnen(kontext: CanvasRenderingContext2D, striche: Punkt[][]) {
   kontext.lineCap = "round";
@@ -35,6 +46,11 @@ function zeichnen(kontext: CanvasRenderingContext2D, striche: Punkt[][]) {
   kontext.lineWidth = STRICHBREITE;
   for (const [anfang, ...verlauf] of striche) {
     kontext.beginPath();
+    if (verlauf.length === 0) {
+      kontext.arc(anfang.x, anfang.y, STRICHBREITE / 2, 0, 2 * Math.PI);
+      kontext.fill();
+      continue;
+    }
     kontext.moveTo(anfang.x, anfang.y);
     for (const punkt of verlauf) kontext.lineTo(punkt.x, punkt.y);
     kontext.stroke();
@@ -49,8 +65,15 @@ function pfad(punkte: Punkt[]) {
   return punkte.map(({ x, y }, index) => `${index === 0 ? "M" : "L"}${x} ${y}`).join(" ");
 }
 
-function position({ clientX, clientY, currentTarget }: PointerEvent<SVGSVGElement>): Punkt {
-  const rahmen = currentTarget.getBoundingClientRect();
+function Tintenstrich({ punkte }: { punkte: Punkt[] }) {
+  if (punkte.length === 0) return null;
+  if (punkte.length === 1) {
+    return <circle cx={punkte[0].x} cy={punkte[0].y} r={STRICHBREITE / 2} fill="currentColor" stroke="none" />;
+  }
+  return <path d={pfad(punkte)} />;
+}
+
+function position({ clientX, clientY }: globalThis.PointerEvent, rahmen: DOMRect): Punkt {
   const rand = STRICHBREITE;
   return {
     x: Math.min(BREITE - rand, Math.max(rand, ((clientX - rahmen.left) / rahmen.width) * BREITE)),
@@ -75,7 +98,20 @@ export default function Unterschriftsfeld({
   const aktiv = useRef<AktiverStrich | null>(null);
   const gespeichert = bild === undefined ? lokalesBild : bild;
   const istZeichnung = methode === "zeichnen";
-  const kannUebernehmen = istZeichnung ? striche.length > 0 : /\p{L}/u.test(name);
+  const [druckbereiterName, setDruckbereiterName] = useState<string | null>(null);
+  const kannUebernehmen = istZeichnung ? striche.length > 0 : druckbereiterName === name && /\p{L}/u.test(name);
+
+  // Canvas wartet anders als ein HTML-Eingabefeld nicht selbst auf die Webschrift.
+  useEffect(() => {
+    if (!offen || istZeichnung || !name.trim()) return;
+    let aktuell = true;
+    document.fonts.load(CANVAS_HANDSCHRIFT, name).then(() => {
+      if (aktuell) setDruckbereiterName(name);
+    }).catch(() => {
+      if (aktuell) setFehler("Die Handschrift konnte nicht geladen werden. Bitte öffne das Unterschriftsfeld erneut.");
+    });
+    return () => { aktuell = false; };
+  }, [offen, istZeichnung, name]);
   const aktionszusatz = bezeichnung ? ` – ${bezeichnung}` : "";
 
   function entwurfLeeren() {
@@ -83,6 +119,7 @@ export default function Unterschriftsfeld({
     setStriche([]);
     setVorschau([]);
     setName("");
+    setDruckbereiterName(null);
     setFehler("");
   }
 
@@ -93,19 +130,23 @@ export default function Unterschriftsfeld({
 
   function anfangen(event: PointerEvent<SVGSVGElement>) {
     if (aktiv.current || event.button !== 0) return;
-    const punkte = [position(event)];
+    const punkte = [position(event.nativeEvent, event.currentTarget.getBoundingClientRect())];
     event.currentTarget.setPointerCapture(event.pointerId);
-    aktiv.current = { zeiger: event.pointerId, punkte, laenge: 0 };
+    aktiv.current = { zeiger: event.pointerId, punkte };
     setVorschau(punkte);
   }
 
   function punktAufnehmen(event: PointerEvent<SVGSVGElement>) {
     const aktuellerStrich = aktiv.current;
     if (!aktuellerStrich || aktuellerStrich.zeiger !== event.pointerId) return;
-    const punkt = position(event);
-    const letzterPunkt = aktuellerStrich.punkte[aktuellerStrich.punkte.length - 1];
-    aktuellerStrich.laenge += Math.hypot(punkt.x - letzterPunkt.x, punkt.y - letzterPunkt.y);
-    aktuellerStrich.punkte.push(punkt);
+    const rahmen = event.currentTarget.getBoundingClientRect();
+    // Bei schnellen Bewegungen kann der Browser mehrere Messpunkte gemeinsam zustellen.
+    const messpunkte = event.nativeEvent.getCoalescedEvents?.() ?? [];
+    for (const messung of [...messpunkte, event.nativeEvent]) {
+      const punkt = position(messung, rahmen);
+      const letzter = aktuellerStrich.punkte[aktuellerStrich.punkte.length - 1];
+      if (punkt.x !== letzter.x || punkt.y !== letzter.y) aktuellerStrich.punkte.push(punkt);
+    }
     return aktuellerStrich;
   }
 
@@ -115,15 +156,15 @@ export default function Unterschriftsfeld({
   }
 
   function beenden(event: PointerEvent<SVGSVGElement>) {
-    const aktuellerStrich = punktAufnehmen(event);
-    if (!aktuellerStrich) return;
-    // Ein Tippen ohne erkennbare Bewegung liefert keinen Unterschriftsstrich.
-    if (aktuellerStrich.laenge >= 6) setStriche((bisher) => [...bisher, aktuellerStrich.punkte]);
-    verwerfen(event);
+    punktAufnehmen(event);
+    strichAbschliessen(event);
   }
 
-  function verwerfen(event: PointerEvent<SVGSVGElement>) {
-    if (aktiv.current?.zeiger !== event.pointerId) return;
+  function strichAbschliessen(event: PointerEvent<SVGSVGElement>) {
+    const strich = aktiv.current;
+    if (!strich || strich.zeiger !== event.pointerId) return;
+    // Bei einer Unterbrechung nur die tatsächlich aufgezeichneten Positionen übernehmen.
+    setStriche((bisher) => [...bisher, strich.punkte]);
     aktiv.current = null;
     setVorschau([]);
   }
@@ -148,8 +189,8 @@ export default function Unterschriftsfeld({
       } else {
         kontext.font = "24px sans-serif";
         kontext.fillText("Unterschrift per Namenseingabe", 16, 47);
-        kontext.font = "36px sans-serif";
-        kontext.fillText(name.trim(), 16, 99, BREITE - 32);
+        kontext.font = CANVAS_HANDSCHRIFT;
+        kontext.fillText(name.trim(), 16, 154, BREITE - 32);
       }
       const abbild = canvas.toDataURL("image/png");
       setLokalesBild(abbild);
@@ -234,12 +275,12 @@ export default function Unterschriftsfeld({
                   onPointerDown={anfangen}
                   onPointerMove={fortsetzen}
                   onPointerUp={beenden}
-                  onPointerCancel={verwerfen}
-                  onLostPointerCapture={verwerfen}
+                  onPointerCancel={strichAbschliessen}
+                  onLostPointerCapture={strichAbschliessen}
                 >
                   <g fill="none" stroke="currentColor" strokeWidth={STRICHBREITE} strokeLinecap="round" strokeLinejoin="round">
-                    {striche.map((punkte, index) => <path key={index} d={pfad(punkte)} />)}
-                    <path d={pfad(vorschau)} />
+                    {striche.map((punkte, index) => <Tintenstrich key={index} punkte={punkte} />)}
+                    <Tintenstrich punkte={vorschau} />
                   </g>
                 </svg>
               </div>
@@ -254,7 +295,7 @@ export default function Unterschriftsfeld({
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className={`space-y-2 ${handschrift.variable} ${styles.namenseingabe}`}>
               <p className="text-sm text-fcb-muted">
                 Wenn du die Zeichenfläche nicht benutzen kannst, gib deinen vollständigen Namen ein.
                 Das PDF kennzeichnet diese Unterschrift als Namenseingabe.
