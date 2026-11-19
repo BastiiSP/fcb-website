@@ -446,15 +446,18 @@ export default function Beitrittsformular() {
         </Card>
       )}
 
-      <Modal open={neustartOffen} onClose={() => setNeustartOffen(false)} title="Beitrittserklärung neu beginnen?" size="sm">
-        <p className="mb-5 text-sm">
-          Der Browser verwirft alle Eingaben und Unterschriften dieses Entwurfs. Bereits heruntergeladene Dateien bleiben auf deinem Gerät.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => setNeustartOffen(false)} autoFocus>Weiter bearbeiten</Button>
-          <Button variant="danger" onClick={neuBeginnen}>Entwurf verwerfen</Button>
-        </div>
-      </Modal>
+      {/* Beim Neustart muss die Fokusfalle enden, bevor die geleerten Felder fokussierbar sind. */}
+      {neustartOffen && (
+        <Modal open onClose={() => setNeustartOffen(false)} title="Beitrittserklärung neu beginnen?" size="sm">
+          <p className="mb-5 text-sm">
+            Der Browser verwirft alle Eingaben und Unterschriften dieses Entwurfs. Bereits heruntergeladene Dateien bleiben auf deinem Gerät.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setNeustartOffen(false)} autoFocus>Weiter bearbeiten</Button>
+            <Button variant="danger" onClick={neuBeginnen}>Entwurf verwerfen</Button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
