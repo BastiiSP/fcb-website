@@ -3,6 +3,14 @@
 Stand: 13.11.2026. Der aktuelle Betriebsstand ist unten zusammengefasst;
 Detailnachweise und Prüfgrenzen stehen in den verlinkten Themenquellen.
 
+## JFG-Beitrittserklärung zur Sichtprüfung
+
+Der JFG-Auftritt bietet eine unverlinkte Testfassung für ein gemeinsam genutztes
+Gerät. Sie erzeugt ein als Test gekennzeichnetes PDF lokal im Browser.
+Mitgliedsanlage, Übermittlung und Archivierung sind offen. Vor dem echten
+Aufnahmebetrieb sind die digitale Form mit Verein und Bank sowie der Umgang mit
+den ausgefüllten Erklärungen zu klären.
+
 ## Dokumentierter Stand
 
 - `main` ist durch Pull Requests und fünf Pflichtchecks geschützt. Kostenloser
