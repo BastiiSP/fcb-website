@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { TENANTS } from "../src/lib/tenant";
 import { instagramBildAlt } from "../src/lib/instagramAlt";
 import { istNoindexPfad, oeffentlichePfade, basisUrl } from "../src/lib/seo";
 import { erstelleStartseitenJsonLd } from "../src/lib/strukturierteDaten";
@@ -9,6 +10,15 @@ test("interne Pfade werden exakt oder als Unterpfad erkannt", () => {
   }
   for (const pfad of ["/", "/verein", "/vereinXYZ", "/vorstandsbereichXYZ", "/apiary"]) {
     expect(istNoindexPfad(pfad)).toBe(false);
+  }
+});
+
+test("die JFG-Beitrittserklärung bleibt auf beiden Marken unverlinkt und ohne Indexierung", () => {
+  const pfad = "/beitritt/vereinsaufnahme";
+  expect(istNoindexPfad(pfad)).toBe(true);
+  for (const id of ["jfg", "fcb"] as const) {
+    expect(oeffentlichePfade(id)).not.toContain(pfad);
+    expect(TENANTS[id].navLinks.map((link) => link.href)).not.toContain(pfad);
   }
 });
 

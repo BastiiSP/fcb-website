@@ -40,6 +40,8 @@ export interface TenantNavLink {
 
 export interface TenantTraegerverein {
   name: string;
+  /** Abweichende Schreibweise auf der Beitrittserklärung. */
+  nameImBeitrittsformular?: string;
   /** Kurzform unter dem Wappen. */
   kurz: string;
   /** Wappen in /public. */
@@ -196,9 +198,9 @@ const JFG: TenantConfig = {
   // niedrig aufgelösten BFV-Vorlagen hochskaliert (1:1-Vorgabe), von Basti
   // UND Claudian gegen die Originale gegengeprüft, dann per rembg freigestellt.
   traegervereine: [
-    { name: "1. FC 1911 Burgkunstadt", kurz: "FCB", logoSrc: "/logo.svg" },
-    { name: "SG Roth-Main Mainroth", kurz: "Roth-Main", logoSrc: "/logo-sg-roth-main.png" },
-    { name: "1. FC 1916 Redwitz a. d. Rodach", kurz: "Redwitz", logoSrc: "/logo-fc-redwitz.png" },
+    { name: "1. FC 1911 Burgkunstadt", kurz: "FCB", nameImBeitrittsformular: "1. FC Burgkunstadt e.V.", logoSrc: "/logo.svg" },
+    { name: "SG Roth-Main Mainroth", kurz: "Roth-Main", nameImBeitrittsformular: "SG Roth-Main e.V.", logoSrc: "/logo-sg-roth-main.png" },
+    { name: "1. FC 1916 Redwitz a. d. Rodach", kurz: "Redwitz", nameImBeitrittsformular: "1. FC Redwitz", logoSrc: "/logo-fc-redwitz.png" },
   ],
   untertitel: "Jugendförderung · A- bis D-Junioren",
   logoSrc: "/logo-jfg.png",

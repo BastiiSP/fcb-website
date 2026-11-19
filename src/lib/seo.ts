@@ -25,7 +25,7 @@ export function oeffentlichePfade(id: TenantId): string[] {
 export const NOINDEX_PFADE = [
   "/login", "/registrieren", "/confirm-email", "/passwort-vergessen", "/passwort-neu", "/auth", "/profil",
   "/mein-verein", "/platzbuchung", "/meine-buchungen", "/mitglieder",
-  "/vorstandsbereich", "/kalender", "/vorstand", "/api",
+  "/vorstandsbereich", "/kalender", "/vorstand", "/api", "/beitritt/vereinsaufnahme",
 ] as const;
 
 export function istNoindexPfad(pfad: string): boolean {
