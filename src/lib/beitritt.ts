@@ -59,15 +59,72 @@ export function istMinderjaehrig(isoDatum: string, heute = new Date()): boolean 
   return heute < geburtstag18;
 }
 
+export function normalisiereIban(eingabe: string): string {
+  return eingabe.replace(/\s/g, "").replace(/[a-z]/g, (zeichen) => zeichen.toUpperCase());
+}
+
+interface IbanPruefung {
+  status: "unvollstaendig" | "ungueltig" | "gueltig";
+  meldung: string;
+  pruefsummenfehler?: boolean;
+}
+
 /** Form und Prüfziffer kontrollieren, ohne eine Bank oder einen Dienst anzufragen. */
-export function gueltigeIban(eingabe: string): boolean {
-  const iban = eingabe.replace(/\s/g, "").toUpperCase();
-  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
-  if (iban.startsWith("DE") && !/^DE\d{20}$/.test(iban)) return false;
+export function pruefeIban(eingabe: string): IbanPruefung {
+  const iban = normalisiereIban(eingabe);
+  const deutsch = iban.startsWith("DE");
+
+  if (deutsch) {
+    if (/\D/.test(iban.slice(2))) {
+      return { status: "ungueltig", meldung: "Nach DE sind nur Ziffern erlaubt." };
+    }
+    const fehlendeZiffern = 22 - iban.length;
+    if (fehlendeZiffern > 0) {
+      return {
+        status: "unvollstaendig",
+        meldung: fehlendeZiffern === 1 ? "Noch 1 Ziffer" : `Noch ${fehlendeZiffern} Ziffern`,
+      };
+    }
+    if (fehlendeZiffern < 0) {
+      return { status: "ungueltig", meldung: "Nach DE müssen genau 20 Ziffern stehen." };
+    }
+  } else {
+    if (/[^A-Z]/.test(iban.slice(0, 2))) {
+      return { status: "ungueltig", meldung: "Die IBAN muss mit zwei Buchstaben beginnen." };
+    }
+    if (/\D/.test(iban.slice(2, 4))) {
+      return { status: "ungueltig", meldung: "Auf den Ländercode müssen zwei Ziffern folgen." };
+    }
+    if (/[^A-Z0-9]/.test(iban.slice(4))) {
+      return { status: "ungueltig", meldung: "Die IBAN darf nur Buchstaben und Ziffern enthalten." };
+    }
+    if (iban.length < 15) {
+      return { status: "unvollstaendig", meldung: "Die IBAN ist noch unvollständig." };
+    }
+    if (iban.length > 34) {
+      return { status: "ungueltig", meldung: "Die IBAN darf höchstens 34 Zeichen enthalten." };
+    }
+  }
+
   const pruefzahl = (iban.slice(4) + iban.slice(0, 4)).replace(/[A-Z]/g, (buchstabe) =>
     String(buchstabe.charCodeAt(0) - 55)
   );
   let rest = 0;
   for (const ziffer of pruefzahl) rest = (rest * 10 + Number(ziffer)) % 97;
-  return rest === 1;
+  return rest === 1
+    ? { status: "gueltig", meldung: deutsch ? "IBAN formal gültig" : "IBAN-Prüfsumme stimmt" }
+    : {
+        status: "ungueltig",
+        meldung: "Bitte vergleiche die IBAN noch einmal mit deiner Vorlage.",
+        pruefsummenfehler: true,
+      };
+}
+
+export function ibanFehlermeldung(eingabe: string): string | undefined {
+  const pruefung = pruefeIban(eingabe);
+  return pruefung.status === "gueltig" ? undefined : pruefung.meldung;
+}
+
+export function gueltigeIban(eingabe: string): boolean {
+  return pruefeIban(eingabe).status === "gueltig";
 }

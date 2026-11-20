@@ -10,7 +10,7 @@ import Modal from "@/components/ui/Modal";
 import {
   beitrittstext,
   GLAEUBIGER_ID,
-  gueltigeIban,
+  ibanFehlermeldung,
   istMinderjaehrig,
   mandatstext,
   rollenLabel,
@@ -19,6 +19,7 @@ import {
   type Beitrittsnachweise,
   type Signaturrolle,
 } from "@/lib/beitritt";
+import { IbanFeld } from "./IbanFeld";
 import Unterschriftsfeld from "./Unterschriftsfeld";
 
 type Feld = keyof Beitrittsdaten;
@@ -29,19 +30,21 @@ interface Felddefinition {
   label: string;
   type?: string;
   inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"];
+  autoComplete?: string;
+  fruehPruefen?: boolean;
   maxLength?: number;
   breit?: boolean;
 }
 
 const MITGLIEDSDATEN: Felddefinition[] = [
-  { id: "vorname", label: "Vorname", maxLength: 80 },
-  { id: "nachname", label: "Nachname", maxLength: 80 },
-  { id: "strasse", label: "Straße und Hausnummer", maxLength: 140, breit: true },
-  { id: "plz", label: "PLZ", inputMode: "numeric", maxLength: 5 },
-  { id: "ort", label: "Ort", maxLength: 100 },
-  { id: "geburtsdatum", label: "Geburtsdatum", type: "date" },
-  { id: "telefon", label: "Telefon", type: "tel", maxLength: 40 },
-  { id: "email", label: "E-Mail", type: "email", maxLength: 254, breit: true },
+  { id: "vorname", label: "Vorname", autoComplete: "section-mitglied given-name", maxLength: 80 },
+  { id: "nachname", label: "Nachname", autoComplete: "section-mitglied family-name", maxLength: 80 },
+  { id: "strasse", label: "Straße und Hausnummer", autoComplete: "section-mitglied street-address", maxLength: 140, breit: true },
+  { id: "plz", label: "PLZ", inputMode: "numeric", autoComplete: "section-mitglied postal-code", maxLength: 5, fruehPruefen: true },
+  { id: "ort", label: "Ort", autoComplete: "section-mitglied address-level2", maxLength: 100 },
+  { id: "geburtsdatum", label: "Geburtsdatum", type: "date", autoComplete: "section-mitglied bday", fruehPruefen: true },
+  { id: "telefon", label: "Telefon", type: "tel", autoComplete: "section-mitglied tel", maxLength: 40 },
+  { id: "email", label: "E-Mail", type: "email", autoComplete: "section-mitglied email", maxLength: 254, breit: true, fruehPruefen: true },
   { id: "stammverein", label: "Stammverein", breit: true },
 ];
 
@@ -53,7 +56,7 @@ const UNTERSCHRIFTSORT: Felddefinition = {
 };
 const BANKDATEN: Felddefinition[] = [
   { id: "kontoinhaber", label: "Vor- und Nachname des Kontoinhabers", maxLength: 120, breit: true },
-  { id: "iban", label: "IBAN", maxLength: 50 },
+  { id: "iban", label: "IBAN" },
   { id: "bank", label: "Name der Bank", maxLength: 100 },
 ];
 
@@ -87,25 +90,20 @@ function datumGueltig(wert: string, heute = new Date()) {
   return wert <= heuteISO;
 }
 
-function feldFehler(daten: Beitrittsdaten, felder: Felddefinition[], stammvereine: string[]): Fehler {
-  const fehler: Fehler = {};
-  for (const { id } of felder) {
-    if (!daten[id]) fehler[id] = "Bitte dieses Feld ausfüllen.";
+function validiereFeld(id: Feld, wert: string, stammvereine: string[], unvollstaendigesDatum = false): string | undefined {
+  if (id === "geburtsdatum" && (unvollstaendigesDatum || (wert && !datumGueltig(wert)))) {
+    return "Bitte ein gültiges Geburtsdatum bis einschließlich heute eingeben.";
   }
-  if (daten.stammverein && !stammvereine.includes(daten.stammverein)) {
-    fehler.stammverein = "Bitte einen Stammverein aus der Liste wählen.";
+  if (!wert) return "Bitte dieses Feld ausfüllen.";
+  if (id === "stammverein" && !stammvereine.includes(wert)) {
+    return "Bitte einen Stammverein aus der Liste wählen.";
   }
-  if (daten.geburtsdatum && !datumGueltig(daten.geburtsdatum)) {
-    fehler.geburtsdatum = "Bitte ein gültiges Geburtsdatum bis einschließlich heute eingeben.";
+  if (id === "plz" && !/^[0-9]{5}$/.test(wert)) return "Bitte eine fünfstellige PLZ eingeben.";
+  if (id === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(wert)) {
+    return "Bitte eine gültige E-Mail-Adresse eingeben.";
   }
-  if (daten.plz && !/^[0-9]{5}$/.test(daten.plz)) fehler.plz = "Bitte eine fünfstellige PLZ eingeben.";
-  if (daten.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(daten.email)) {
-    fehler.email = "Bitte eine gültige E-Mail-Adresse eingeben.";
-  }
-  if (daten.iban && !gueltigeIban(daten.iban)) {
-    fehler.iban = "Bitte die IBAN prüfen. Sie ist ungültig.";
-  }
-  return fehler;
+  if (id === "iban") return ibanFehlermeldung(wert);
+  return undefined;
 }
 
 function formatGeburtsdatum(datum: string) {
@@ -145,12 +143,14 @@ export default function Beitrittsformular() {
   const [unterschreiben, setUnterschreiben] = useState(false);
   const [zeichnung, setZeichnung] = useState<string | null>(null);
   const [fehler, setFehler] = useState<Fehler>({});
+  const [weiterVersucht, setWeiterVersucht] = useState(false);
   const [neustartOffen, setNeustartOffen] = useState(false);
   const [pdfLaedt, setPdfLaedt] = useState(false);
   const [pdfStatus, setPdfStatus] = useState<"bereit" | "heruntergeladen" | "fehler">("bereit");
 
   const feldPraefix = useId();
   const abschnitt = useRef<HTMLHeadingElement>(null);
+  const geburtsdatumEingabe = useRef<HTMLInputElement>(null);
   const hatSchrittGewechselt = useRef(false);
   const minderjaehrig = datumGueltig(daten.geburtsdatum) && istMinderjaehrig(daten.geburtsdatum);
   const mitgliedsdaten = minderjaehrig ? [...MITGLIEDSDATEN, VERTRETUNG] : MITGLIEDSDATEN;
@@ -163,12 +163,14 @@ export default function Beitrittsformular() {
     if (hatSchrittGewechselt.current) abschnitt.current?.focus();
   }, [titelFokus]);
 
-  function aendereFeld(feld: Feld, wert: string) {
+  function aendereFeld(feld: Feld, wert: string, fruehPruefen = false, unvollstaendigesDatum = false) {
+    const neuesGeburtsdatumGueltig = feld === "geburtsdatum" && datumGueltig(wert);
+    const neuesGeburtsdatumVolljaehrig = neuesGeburtsdatumGueltig && !istMinderjaehrig(wert);
     setEntwurf((bisher) => {
       if (wert === bisher.daten[feld]) return bisher;
 
       const neueDaten = { ...bisher.daten, [feld]: wert };
-      if (feld === "geburtsdatum" && datumGueltig(wert) && !istMinderjaehrig(wert)) {
+      if (neuesGeburtsdatumVolljaehrig) {
         neueDaten.vertretung = "";
       }
 
@@ -181,17 +183,30 @@ export default function Beitrittsformular() {
       if (MANDAT_FELDER.has(feld)) delete neueNachweise.kontoinhaber;
       return { daten: neueDaten, nachweise: neueNachweise };
     });
-    setFehler((bisher) => ({ ...bisher, [feld]: undefined }));
+    setFehler((bisher) => {
+      const neueFehler: Fehler = { ...bisher, [feld]: undefined };
+      if (fruehPruefen && bisher[feld]) {
+        neueFehler[feld] = validiereFeld(feld, wert.trim(), stammvereine, unvollstaendigesDatum);
+      }
+      if (feld === "geburtsdatum" && (!neuesGeburtsdatumGueltig || neuesGeburtsdatumVolljaehrig)) {
+        delete neueFehler.vertretung;
+      }
+      return neueFehler;
+    });
     setPdfStatus("bereit");
   }
 
   function weiter() {
     const bereinigt = { ...daten };
     for (const id of Object.keys(bereinigt) as Feld[]) bereinigt[id] = bereinigt[id].trim();
-    bereinigt.iban = bereinigt.iban.replace(/\s/g, "").toUpperCase();
     if (!minderjaehrig) bereinigt.vertretung = "";
     const felder = [...mitgliedsdaten, ...BANKDATEN, UNTERSCHRIFTSORT];
-    const neueFehler = feldFehler(bereinigt, felder, stammvereine);
+    const neueFehler: Fehler = {};
+    for (const { id } of felder) {
+      const unvollstaendigesDatum = id === "geburtsdatum" && geburtsdatumEingabe.current?.validity.badInput;
+      neueFehler[id] = validiereFeld(id, bereinigt[id], stammvereine, unvollstaendigesDatum);
+    }
+    setWeiterVersucht(true);
     setFehler(neueFehler);
     const erstesFehlerfeld = felder.find(({ id }) => neueFehler[id]);
     if (erstesFehlerfeld) {
@@ -233,6 +248,7 @@ export default function Beitrittsformular() {
     setEntwurf({ daten: LEERE_DATEN, nachweise: {} });
     setZeichnung(null);
     setFehler({});
+    setWeiterVersucht(false);
     setPdfStatus("bereit");
     setUnterschreiben(false);
     requestAnimationFrame(() => abschnitt.current?.focus());
@@ -253,18 +269,31 @@ export default function Beitrittsformular() {
     }
   }
 
-  function feld({ id, label, type, inputMode, maxLength, breit }: Felddefinition) {
+  function feld({ id, label, type, inputMode, autoComplete, fruehPruefen, maxLength, breit }: Felddefinition) {
     const inputId = feldPraefix + id;
     const fehlermeldung = fehler[id];
+    if (id === "iban") {
+      return (
+        <IbanFeld
+          key={id}
+          id={inputId}
+          wert={daten.iban}
+          onChange={(wert) => aendereFeld(id, wert)}
+          fehler={fehlermeldung}
+        />
+      );
+    }
+
     const eingabe = {
       id: inputId,
+      name: id,
       required: true,
-      autoComplete: "off",
+      autoComplete: autoComplete ?? "off",
       value: daten[id],
       "aria-invalid": fehlermeldung ? true : undefined,
       "aria-describedby": fehlermeldung ? inputId + "-fehler" : undefined,
       className: [
-        "min-h-11 w-full min-w-0 rounded-lg border bg-fcb-bg px-3 py-2.5 text-base text-fcb-text",
+        "min-h-11 w-full min-w-0 scroll-mt-20 rounded-lg border bg-fcb-bg px-3 py-2.5 text-base text-fcb-text",
         "focus:border-fcb-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-fcb-accent",
         fehlermeldung ? "border-fcb-red" : "border-fcb-border",
       ].join(" "),
@@ -288,11 +317,23 @@ export default function Beitrittsformular() {
             inputMode={inputMode}
             maxLength={maxLength}
             spellCheck={false}
-            autoCapitalize={id === "iban" ? "characters" : id === "email" ? "none" : undefined}
-            onChange={(event) => aendereFeld(id, event.target.value)}
+            autoCapitalize={id === "email" ? "none" : undefined}
+            ref={id === "geburtsdatum" ? geburtsdatumEingabe : undefined}
+            onChange={(event) => aendereFeld(id, event.currentTarget.value, fruehPruefen, event.currentTarget.validity.badInput)}
+            onBlur={fruehPruefen ? (event) => {
+              const wert = event.currentTarget.value.trim();
+              const unvollstaendigesDatum = id === "geburtsdatum" && event.currentTarget.validity.badInput;
+              if (!wert && !unvollstaendigesDatum) return;
+              setFehler((bisher) => ({
+                ...bisher,
+                [id]: validiereFeld(id, wert, stammvereine, unvollstaendigesDatum),
+              }));
+            } : undefined}
           />
         )}
-        {fehlermeldung && <p id={inputId + "-fehler"} className="text-sm text-fcb-text">{fehlermeldung}</p>}
+        <p id={inputId + "-fehler"} aria-live={fruehPruefen ? "polite" : undefined} className="text-sm text-fcb-text empty:!mt-0">
+          {fehlermeldung}
+        </p>
       </div>
     );
   }
@@ -345,7 +386,7 @@ export default function Beitrittsformular() {
           </fieldset>
           <div className="border-t border-fcb-border pt-4">{feld(UNTERSCHRIFTSORT)}</div>
 
-          {Object.values(fehler).some(Boolean) && (
+          {weiterVersucht && Object.values(fehler).some(Boolean) && (
             <div role="alert"><Banner variant="error" message="Bitte prüfe die markierten Angaben." /></div>
           )}
           <div className="flex flex-wrap gap-2">
