@@ -6,7 +6,9 @@ Detailnachweise und Prüfgrenzen stehen in den verlinkten Themenquellen.
 ## JFG-Beitrittserklärung zur Sichtprüfung
 
 Der JFG-Auftritt bietet eine unverlinkte Testfassung für ein gemeinsam genutztes
-Gerät. Sie erzeugt ein als Test gekennzeichnetes PDF lokal im Browser.
+Gerät. Für die Sichtprüfung nur erfundene Angaben verwenden, auch wenn der
+Browser gespeicherte Kontaktdaten vorschlägt. Die IBAN-Prüfung erfolgt lokal
+und bestätigt nur das Format. Das Formular erzeugt das Test-PDF im Browser.
 Mitgliedsanlage, Übermittlung und Archivierung sind offen. Vor dem echten
 Aufnahmebetrieb sind die digitale Form mit Verein und Bank sowie der Umgang mit
 den ausgefüllten Erklärungen zu klären.
